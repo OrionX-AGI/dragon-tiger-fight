@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { createLogger } from './core/logger';
-import OnlineScreen from './online/OnlineScreen';
 import BoardGameScreen from './ui/BoardGame/BoardGameScreen';
 import CardGameScreen from './ui/CardGame/CardGameScreen';
 import Lobby from './ui/Lobby';
@@ -13,8 +12,7 @@ type Screen =
   | { name: 'lobby' }
   | { name: 'rules' }
   | { name: 'card'; config: MatchConfig }
-  | { name: 'board'; config: MatchConfig }
-  | { name: 'online' };
+  | { name: 'board'; config: MatchConfig };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'lobby' });
@@ -32,14 +30,11 @@ export default function App() {
       return <CardGameScreen key={Date.now()} config={screen.config} onExit={backToLobby} />;
     case 'board':
       return <BoardGameScreen key={Date.now()} config={screen.config} onExit={backToLobby} />;
-    case 'online':
-      return <OnlineScreen onExit={backToLobby} />;
     default:
       return (
         <Lobby
           onStartCard={(config) => go({ name: 'card', config })}
           onStartBoard={(config) => go({ name: 'board', config })}
-          onOnline={() => go({ name: 'online' })}
           onRules={() => go({ name: 'rules' })}
         />
       );

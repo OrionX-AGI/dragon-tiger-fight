@@ -1,7 +1,7 @@
 import type { AiLevel } from '../ai/cardAI';
 import type { Faction } from '../core/types';
 
-/** 非在线对局配置（一律人机对战） */
+/** 人机对局配置 */
 export interface MatchConfig {
   /** 人机难度 */
   level: AiLevel;

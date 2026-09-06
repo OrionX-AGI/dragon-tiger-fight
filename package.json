@@ -6,26 +6,21 @@
   "scripts": {
     "start": "vite --open",
     "dev": "vite",
-    "build": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "server": "tsx server/main.ts",
     "test": "vitest run"
   },
   "dependencies": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
-    "ws": "^8.21.3"
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.0.5",
     "sharp": "^0.35.3",
-    "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "vitest": "^4.1.10"

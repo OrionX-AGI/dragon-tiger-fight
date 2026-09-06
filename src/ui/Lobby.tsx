@@ -7,7 +7,6 @@ import { defaultConfig } from './config';
 interface Props {
   onStartCard: (config: MatchConfig) => void;
   onStartBoard: (config: MatchConfig) => void;
-  onOnline: () => void;
   onRules: () => void;
 }
 
@@ -104,7 +103,7 @@ function GamePanel({
   );
 }
 
-export default function Lobby({ onStartCard, onStartBoard, onOnline, onRules }: Props) {
+export default function Lobby({ onStartCard, onStartBoard, onRules }: Props) {
   return (
     <div className="lobby">
       <header className="lobby-header">
@@ -124,16 +123,6 @@ export default function Lobby({ onStartCard, onStartBoard, onOnline, onRules }: 
           showFirstMover
           onStart={onStartBoard}
         />
-        <section className="game-panel">
-          <h3>在线对战</h3>
-          <p className="panel-desc">
-            与真人隔屏对决：创建房间告诉朋友房间码，或在牌桌列表挑选对手，也可以一键自动匹配。两种玩法都支持。
-          </p>
-          <p className="panel-desc">局域网即可开战——由一台电脑启动联机服务器，双方浏览器访问同一地址。</p>
-          <button className="btn-primary panel-start" onClick={onOnline}>
-            进入在线大厅
-          </button>
-        </section>
       </div>
       <footer className="lobby-footer">
         <button className="btn-plain" onClick={onRules}>1分钟掌握游戏规则</button>
