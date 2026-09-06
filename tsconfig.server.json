@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node", "vite/client"]
+  },
+  "include": ["server", "src/core", "src/online/protocol.ts"]
+}
