@@ -7,7 +7,19 @@
 
 均为人机对战（三档难度 AI），无需联网。纸牌对拼采用**三局两胜**赛制（和局不计胜场，自动加赛）。
 
-完整规则见 [龙虎斗游戏规则说明书.md](./龙虎斗游戏规则说明书.md)。
+完整规则见 [龙虎斗游戏规则说明书.md](./龙虎斗游戏规则说明书.md)，想快速上手看 [极简规则](./龙虎斗极简规则.md)。
+
+## 游戏截图
+
+<p align="center"><img src="docs/screenshots/lobby.webp" width="860" alt="游戏大厅"></p>
+
+| 纸牌对拼 · 开局记牌 | 纸牌对拼 · 亮牌定胜负 |
+| :---: | :---: |
+| ![开局记牌](docs/screenshots/card-preview.webp) | ![亮牌定胜负](docs/screenshots/card-play.webp) |
+| 八张牌先明牌亮相数秒，随后依次扣暗，考验记牌功力 | 双方同时暗出一张，一起翻开按克制关系定胜负 |
+| **棋盘翻棋 · 中局** | **极简规则 · 1 分钟上手** |
+| ![棋盘翻棋](docs/screenshots/board.webp) | ![极简规则](docs/screenshots/rules.webp) |
+| 4×4 棋盘翻牌、行棋、吃子，两侧栏记录双方损失 | 只讲核心差异化规则，看一眼就能开打 |
 
 ## 一键启动（推荐）
 
@@ -76,7 +88,14 @@ src/
 ├── themes/      主题皮肤包（牌名与插画映射，规则只认阵营+编号）
 └── ui/          React 界面组件
 public/assets/   AI 生成的国风牌面插画
+scripts/         启动脚本、牌面压缩、README 截图生成
+docs/screenshots/ README 展示用的界面截图
 ```
 
 > 说明：带局域网在线对战的完整版本保存在 `online-mode` 分支，
 > 当前 `main` 分支为纯人机对战版（主演进方向）。
+
+## 许可证
+
+[MIT](./LICENSE)。可自由使用、修改、商用，保留版权声明即可。
+`public/assets/` 下的牌面插画由 AI 生成，同样按 MIT 授权。
