@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { prepareCardAi, requestCardMove } from '../../ai/aiClient';
-import { AI_LEVEL_LABELS } from '../../ai/cardAI';
 import type { CardGameState, RoundRecord } from '../../core/cardGame';
 import { createCardGame, playRound, surrender } from '../../core/cardGame';
 import { createLogger } from '../../core/logger';
@@ -235,9 +234,9 @@ export default function CardGameScreen({ config, onExit }: Props) {
     }
   }
 
+  /** 手机上放得下一行：不带难度，难度在大厅已选定 */
   function factionLabel(f: Faction): string {
-    const base = factionName(f);
-    return f === aiFaction ? `${base}（电脑 · ${AI_LEVEL_LABELS[config.level]}）` : `${base}（你）`;
+    return `${factionName(f)} · ${f === aiFaction ? '电脑' : '玩家'}`;
   }
 
   /** 该方手牌当前是否明牌 */
@@ -278,10 +277,17 @@ export default function CardGameScreen({ config, onExit }: Props) {
     const lost = [...game.lost[f]].sort((a, b) => a - b);
     return (
       <div className={`hand-zone zone-${position} ${active ? 'zone-active' : ''}`}>
+        {/* 记牌提示不在这里重复：中央区已经在说"双方明牌亮相，请抓紧记牌" */}
         <div className="zone-header">
           <span className={`faction-tag tag-${f}`}>{factionLabel(f)}</span>
-          {phase === 'preview' && <span className="turn-hint">记牌时间：牌面即将扣暗</span>}
-          {active && <span className="turn-hint">请选一张牌，然后点击"确定出牌"</span>}
+          {/* 折叠态只显示张数，跟表头挤在一行；展开才占整行，省下一行高度 */}
+          {lost.length > 0 && <span className="lost-count">已吃掉 {lost.length} 张</span>}
+          {/* 弃牌开关放玩家侧表头：顶栏在手机上塞不下两个按钮 */}
+          {f === playerFaction && (
+            <button className="btn-plain btn-mini" onClick={toggleDiscard}>
+              {showDiscard ? '隐藏弃牌' : '查看弃牌'}
+            </button>
+          )}
         </div>
         <div className="hand-cards">
           {hand.map((rank, idx) => (
@@ -296,56 +302,74 @@ export default function CardGameScreen({ config, onExit }: Props) {
             />
           ))}
         </div>
-        {lost.length > 0 && (
+        {showDiscard && lost.length > 0 && (
           <div className="lost-row">
-            <span className="lost-label">已被吃掉：</span>
-            {showDiscard ? (
-              lost.map((rank) => <CardView key={rank} size="sm" card={{ faction: f, rank }} dimmed />)
-            ) : (
-              <span className="lost-count">{lost.length} 张（点右上"查看弃牌"回看）</span>
-            )}
+            {lost.map((rank) => (
+              <CardView key={rank} size="sm" card={{ faction: f, rank }} dimmed />
+            ))}
           </div>
         )}
       </div>
     );
   }
 
-  /** 结果面板（单局结束或整轮结束） */
-  function resultPanel() {
-    const playerWonGame = game.outcome === playerFaction;
+  /**
+   * 中央提示文字。单独抽出来是因为它要整宽显示：夹在两张手牌中间时
+   * 只剩约 110px 宽，"龙王 吃掉 东北虎"这类文案必然折行。
+   */
+  function centerNote(): string {
+    if (gameOver) return '';
+    if (phase === 'reveal') return lastRound ? roundSummary(lastRound) : '';
+    if (phase === 'waiting') return '双方亮牌……';
+    if (phase === 'preview') return '双方明牌亮相，请抓紧记牌……';
+    return '';
+  }
+
+  /** 结算弹窗（单局结束或整轮结束）：悬浮居中，倒计时并入按钮省一行 */
+  function resultOverlay() {
     if (seriesOver) {
       const playerWonSeries = score.player >= SERIES_TARGET;
       return (
-        <div className="result-panel">
-          <h3 className="result-title">
-            {playerWonSeries ? '你赢得本轮最终胜利！' : '电脑赢得本轮最终胜利'}
-          </h3>
-          <p className="result-reason">
-            三局两胜 · 你 {score.player} : {score.ai} 电脑{score.draw > 0 ? ` · 和 ${score.draw}` : ''}
-          </p>
-          <div className="overlay-actions">
-            <button className="btn-primary" onClick={newSeries}>再来一轮</button>
-            <button className="btn-plain" onClick={onExit}>返回大厅</button>
+        <div className="overlay">
+          <div className="overlay-panel">
+            <h3>{playerWonSeries ? '你赢得本轮胜利！' : '电脑赢得本轮胜利'}</h3>
+            <p className="result-reason">
+              三局两胜 · 你 {score.player} : {score.ai} 电脑
+              {score.draw > 0 && ` · 和 ${score.draw}`}
+            </p>
+            <div className="overlay-actions">
+              <button className="btn-primary" onClick={newSeries}>再来一轮</button>
+              <button className="btn-plain" onClick={onExit}>返回大厅</button>
+            </div>
           </div>
         </div>
       );
     }
+    const playerWonGame = game.outcome === playerFaction;
     return (
-      <div className="result-panel">
-        {lastRound && game.endReason !== 'surrender' && (
-          <p className="round-summary">{roundSummary(lastRound)}</p>
-        )}
-        <h3 className="result-title">
-          {game.outcome === 'draw' ? `第 ${finishedGames} 局和局` : playerWonGame ? `第 ${finishedGames} 局你获胜！` : `第 ${finishedGames} 局电脑获胜`}
-        </h3>
-        {endReasonText() && <p className="result-reason">{endReasonText()}</p>}
-        <p className="result-reason">
-          比分 你 {score.player} : {score.ai} 电脑{score.draw > 0 ? ` · 和 ${score.draw}（和局不计胜场，加赛）` : ''}
-          {nextGameLeft !== null && ` · ${nextGameLeft} 秒后自动开始下一局`}
-        </p>
-        <div className="overlay-actions">
-          <button className="btn-primary" onClick={newGame}>开始下一局</button>
-          <button className="btn-plain" onClick={requestExit}>返回大厅</button>
+      <div className="overlay">
+        <div className="overlay-panel">
+          <h3>
+            {game.outcome === 'draw'
+              ? `第 ${finishedGames} 局和局`
+              : playerWonGame
+                ? `第 ${finishedGames} 局你获胜！`
+                : `第 ${finishedGames} 局电脑获胜`}
+          </h3>
+          {lastRound && game.endReason !== 'surrender' && (
+            <p className="round-summary">{roundSummary(lastRound)}</p>
+          )}
+          {endReasonText() && <p className="result-reason">{endReasonText()}</p>}
+          <p className="result-reason">
+            你 {score.player} : {score.ai} 电脑
+            {score.draw > 0 && ` · 和 ${score.draw}（和局不计胜场，加赛）`}
+          </p>
+          <div className="overlay-actions">
+            <button className="btn-primary" onClick={newGame}>
+              开始下一局{nextGameLeft !== null ? `（${nextGameLeft}）` : ''}
+            </button>
+            <button className="btn-plain" onClick={requestExit}>返回大厅</button>
+          </div>
         </div>
       </div>
     );
@@ -357,9 +381,6 @@ export default function CardGameScreen({ config, onExit }: Props) {
         <button className="btn-plain" onClick={requestExit}>← 返回大厅</button>
         <h2>纸牌对拼</h2>
         <div className="topbar-actions">
-          <button className="btn-plain" onClick={toggleDiscard}>
-            {showDiscard ? '隐藏弃牌' : '查看弃牌'}
-          </button>
           {!gameOver && phase !== 'preview' && (
             <button className="btn-plain btn-danger" onClick={() => setSurrenderAsk(true)}>
               认输
@@ -370,7 +391,8 @@ export default function CardGameScreen({ config, onExit }: Props) {
 
       <div className="score-row">
         <div className="score-tag">
-          三局两胜　第 {gameOver ? finishedGames : finishedGames + 1} 局 · 你 {score.player} : {score.ai} 电脑 · 和 {score.draw}
+          第 {gameOver ? finishedGames : finishedGames + 1} 局 · 你 {score.player} : {score.ai} 电脑
+          {score.draw > 0 && ` · 和 ${score.draw}`}
         </div>
       </div>
 
@@ -381,23 +403,9 @@ export default function CardGameScreen({ config, onExit }: Props) {
           <span className={`faction-tag tag-${aiFaction}`}>{aiFaction === 'dragon' ? '龙' : '虎'}</span>
           {playSlot(aiFaction)}
         </div>
+        {/* 中央只留"对"字标记：文字与按钮都移出去了，否则窄屏会把两侧手牌挤出视口 */}
         <div className="vs-block">
-          {gameOver ? (
-            resultPanel()
-          ) : phase === 'reveal' ? (
-            <>
-              {lastRound && <p className="round-summary">{roundSummary(lastRound)}</p>}
-              <button className="btn-primary" onClick={() => setPhase('pick')}>
-                下一回合{revealLeft !== null ? `（${revealLeft} 秒后自动继续）` : ''}
-              </button>
-            </>
-          ) : phase === 'waiting' ? (
-            <p className="round-summary">双方亮牌……</p>
-          ) : phase === 'preview' ? (
-            <p className="round-summary">双方明牌亮相，请抓紧记牌……</p>
-          ) : (
-            <span className="vs-mark">对</span>
-          )}
+          <span className="vs-mark">对</span>
         </div>
         <div className="play-slot">
           <span className={`faction-tag tag-${playerFaction}`}>{playerFaction === 'dragon' ? '龙' : '虎'}</span>
@@ -405,19 +413,30 @@ export default function CardGameScreen({ config, onExit }: Props) {
         </div>
       </div>
 
+      {centerNote() && <p className="center-note">{centerNote()}</p>}
+
       {handZone(playerFaction, 'bottom')}
 
-      {picking && (
+      {/* 底部固定栏统一承载当前主操作：选牌阶段确认出牌，揭示阶段进入下一回合 */}
+      {(picking || (phase === 'reveal' && !gameOver)) && (
         <div className="action-bar">
-          <button
-            className="btn-primary"
-            disabled={selected === null || !aiReady}
-            onClick={confirmPick}
-          >
-            {!aiReady ? 'AI 准备中……' : '确定出牌'}
-          </button>
+          {picking ? (
+            <button
+              className="btn-primary"
+              disabled={selected === null || !aiReady}
+              onClick={confirmPick}
+            >
+              {!aiReady ? 'AI 准备中……' : '确定出牌'}
+            </button>
+          ) : (
+            <button className="btn-primary" onClick={() => setPhase('pick')}>
+              下一回合{revealLeft !== null ? `（${revealLeft}）` : ''}
+            </button>
+          )}
         </div>
       )}
+
+      {gameOver && resultOverlay()}
 
       {surrenderAsk && !gameOver && (
         <div className="overlay">

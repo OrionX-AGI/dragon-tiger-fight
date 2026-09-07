@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { requestBoardMove } from '../../ai/aiClient';
-import { AI_LEVEL_LABELS } from '../../ai/cardAI';
 import type { BoardAction, BoardGameState, PlayerSlot } from '../../core/boardGame';
 import {
   QUIET_MOVES_FOR_DRAW,
@@ -46,7 +45,8 @@ export default function BoardGameScreen({ config, onExit }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
   const [lastAction, setLastAction] = useState<BoardAction | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [score, setScore] = useState({ dragon: 0, tiger: 0, draw: 0 });
+  /** 战绩按玩家/电脑累计，而不是按龙虎——棋盘每局的阵营由首翻决定，局与局之间会变 */
+  const [score, setScore] = useState({ player: 0, ai: 0, draw: 0 });
   const [surrenderAsk, setSurrenderAsk] = useState(false);
   const [exitAsk, setExitAsk] = useState(false);
   /** 静步预警弹窗当前展示的静步数（null 表示不显示） */
@@ -92,8 +92,13 @@ export default function BoardGameScreen({ config, onExit }: Props) {
 
   function bumpScore(next: BoardGameState) {
     if (next.outcome === null) return;
-    const key = next.outcome === 'draw' ? 'draw' : next.outcome;
-    setScore((s) => ({ ...s, [key]: s[key as keyof typeof s] + 1 }));
+    if (next.outcome === 'draw') {
+      setScore((s) => ({ ...s, draw: s.draw + 1 }));
+      return;
+    }
+    // 必须用 next 的阵营表判断胜方是谁：阵营是本局翻出来的，闭包里的 game 可能还没定阵营
+    const key: 'player' | 'ai' = next.outcome === next.factions[otherSlot(aiSlot)] ? 'player' : 'ai';
+    setScore((s) => ({ ...s, [key]: s[key] + 1 }));
   }
 
   function perform(action: BoardAction) {
@@ -209,11 +214,11 @@ export default function BoardGameScreen({ config, onExit }: Props) {
     warnedThresholds.current = new Set();
   }
 
+  /** 座次由外层的"先手：/后手："前缀给出，这里只说阵营和执子的人，手机上才放得下一行 */
   function slotLabel(slot: PlayerSlot): string {
     const f = game.factions[slot];
-    const seat = slot === 'first' ? '先手' : '后手';
-    const who = slot === aiSlot ? `电脑 · ${AI_LEVEL_LABELS[config.level]}` : '你';
-    return [f !== null ? factionName(f) : '阵营未定', seat, who].join(' · ');
+    const who = slot === aiSlot ? '电脑' : '玩家';
+    return `${f !== null ? factionName(f) : '阵营未定'} · ${who}`;
   }
 
   function endReasonText(): string {
@@ -269,15 +274,18 @@ export default function BoardGameScreen({ config, onExit }: Props) {
       </header>
 
       <div className="board-status">
+        {/* 先手/后手并作一行，战绩另起一行：手机上三块并排会折成三行 */}
         <div className="status-row">
           <span className={`faction-tag ${game.current === 'first' ? 'tag-seat-active' : ''} tag-seat`}>
             先手：{slotLabel('first')}
           </span>
-          <span className="score-tag">
-            战绩　龙 {score.dragon} 胜 · 虎 {score.tiger} 胜 · 和 {score.draw}
-          </span>
           <span className={`faction-tag ${game.current === 'second' ? 'tag-seat-active' : ''} tag-seat`}>
             后手：{slotLabel('second')}
+          </span>
+        </div>
+        <div className="score-row">
+          <span className="score-tag">
+            战绩：玩家 {score.player} 胜 · 电脑 {score.ai} 胜 · 和 {score.draw}
           </span>
         </div>
         {!gameOver && (
@@ -285,35 +293,26 @@ export default function BoardGameScreen({ config, onExit }: Props) {
             {isAiTurn
               ? '电脑思考中……'
               : myFaction === null
-                ? '请翻开一张暗牌（翻出的阵营就是你本局的阵营）'
-                : `轮到${factionName(myFaction)}：点暗牌翻开，或点己方明牌选中后移动 / 吃子`}
+                ? '请翻开一张暗牌，定你的阵营'
+                : `轮到${factionName(myFaction)}：翻牌，移动 或 吃子`}
           </p>
         )}
         {repetitionWarning && (
-          <p className="warn-banner">警告：该棋子再往返一步将构成第 3 次循环，届时必须改走其他着法</p>
+          <p className="warn-banner">该子再往返一步构成第 3 次循环，需改走别处</p>
         )}
         {message && !gameOver && <p className="warn-banner">{message}</p>}
-        {gameOver && (
-          <div className="result-panel board-result">
-            <h3 className="result-title">
-              {game.outcome === 'draw' ? '和局' : `${factionName(game.outcome as Faction)}获胜！`}
-            </h3>
-            {endReasonText() && <p className="result-reason">{endReasonText()}</p>}
-            <div className="overlay-actions">
-              <button className="btn-primary" onClick={newGame}>再来一局</button>
-              <button className="btn-plain" onClick={onExit}>返回大厅</button>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="board-wrap">
-        <div className="captured-col">
-          <span className="lost-label">龙方损失</span>
-          {capturedByFaction.dragon.map((c) => (
-            <CardView key={`${c.faction}-${c.rank}`} size="sm" card={c} dimmed />
-          ))}
-        </div>
+        {/* 无损失时整块不渲染：开局就摆两个空面板纯占高度 */}
+        {capturedByFaction.dragon.length > 0 && (
+          <div className="captured-col">
+            <span className="lost-label">龙方损失</span>
+            {capturedByFaction.dragon.map((c) => (
+              <CardView key={`${c.faction}-${c.rank}`} size="sm" card={c} dimmed />
+            ))}
+          </div>
+        )}
 
         <div className="board-grid">
           {game.board.map((cell, i) => {
@@ -337,13 +336,28 @@ export default function BoardGameScreen({ config, onExit }: Props) {
           })}
         </div>
 
-        <div className="captured-col">
-          <span className="lost-label">虎方损失</span>
-          {capturedByFaction.tiger.map((c) => (
-            <CardView key={`${c.faction}-${c.rank}`} size="sm" card={c} dimmed />
-          ))}
-        </div>
+        {capturedByFaction.tiger.length > 0 && (
+          <div className="captured-col">
+            <span className="lost-label">虎方损失</span>
+            {capturedByFaction.tiger.map((c) => (
+              <CardView key={`${c.faction}-${c.rank}`} size="sm" card={c} dimmed />
+            ))}
+          </div>
+        )}
       </div>
+
+      {gameOver && (
+        <div className="overlay">
+          <div className="overlay-panel">
+            <h3>{game.outcome === 'draw' ? '和局' : `${factionName(game.outcome as Faction)}获胜！`}</h3>
+            {endReasonText() && <p className="result-reason">{endReasonText()}</p>}
+            <div className="overlay-actions">
+              <button className="btn-primary" onClick={newGame}>再来一局</button>
+              <button className="btn-plain" onClick={onExit}>返回大厅</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {quietNotice !== null && (
         <div className="overlay">

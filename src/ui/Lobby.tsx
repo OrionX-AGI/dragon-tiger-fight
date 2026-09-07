@@ -108,18 +108,18 @@ export default function Lobby({ onStartCard, onStartBoard, onRules }: Props) {
     <div className="lobby">
       <header className="lobby-header">
         <h1>龙虎斗</h1>
-        <p className="lobby-subtitle">源自传统洋画的龙虎对决 · 两种玩法 · 斗智斗勇</p>
+        <p className="lobby-subtitle">源自传统洋牌的龙虎对决纸牌游戏</p>
       </header>
       <div className="lobby-panels">
         <GamePanel
           title="纸牌对拼"
-          description="与电脑斗智：双方同时暗出一张牌，按克制关系定胜负。输的牌被永久移除，先打空手牌者败。三局两胜定最终赢家。"
+          description="双方同时暗出一张牌，按克制关系定胜负，三局两胜。"
           showFaction
           onStart={onStartCard}
         />
         <GamePanel
           title="棋盘翻棋"
-          description="与电脑对弈：16 张牌暗置于 4×4 棋盘。翻牌、行棋、吃子，先翻出的牌决定阵营。吃光对方或困毙对方获胜。"
+          description="16 张牌暗置于 4×4 棋盘，翻牌、行棋、吃子。"
           showFirstMover
           onStart={onStartBoard}
         />

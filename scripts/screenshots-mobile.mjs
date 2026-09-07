@@ -34,6 +34,65 @@ async function checkOverflow(page, label, width) {
   return scrollW <= width;
 }
 
+/** 纵向能否一屏看完（本轮优化的核心目标） */
+async function checkHeight(page, label, height) {
+  const scrollH = await page.evaluate(() => document.documentElement.scrollHeight);
+  const over = scrollH - height;
+  console.log(
+    `  [${label}] 文档高 ${scrollH} / 视口 ${height} → ${over > 0 ? `需滑动 ${over}px` : '一屏可见'}`,
+  );
+  return over;
+}
+
+/**
+ * 关键文案不折行。用 getClientRects().length 判断：行内元素每换一行多一个 rect，
+ * 所以 >1 就是折行了。块级元素改用高度与行高的比值判断。
+ */
+async function checkNoWrap(page, label, selectors) {
+  const results = await page.evaluate((sels) => {
+    const out = [];
+    for (const sel of sels) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const style = getComputedStyle(el);
+      const lineH = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+      const inline = style.display.indexOf('inline') === 0;
+      // 块级元素要扣掉自身内边距，否则 padding 会被误算成多出来的一行
+      const contentH =
+        el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      const lines = inline ? el.getClientRects().length : Math.round(contentH / lineH);
+      out.push({ sel, lines, text: (el.textContent || '').trim().slice(0, 24) });
+    }
+    return out;
+  }, selectors);
+
+  let ok = true;
+  for (const r of results) {
+    if (r.lines > 1) {
+      ok = false;
+      console.log(`  [${label}] 折行 ${r.lines} 行：${r.sel}  "${r.text}"`);
+    }
+  }
+  return ok;
+}
+
+/** 损失面板必须与棋盘同宽，否则视觉上是两块不相干的东西 */
+async function checkCapturedWidth(page, label) {
+  const r = await page.evaluate(() => {
+    const grid = document.querySelector('.board-grid');
+    const cols = Array.from(document.querySelectorAll('.captured-col'));
+    if (!grid || cols.length === 0) return null;
+    return { grid: grid.offsetWidth, cols: cols.map((c) => c.offsetWidth) };
+  });
+  if (!r) {
+    console.log(`  [${label}] 暂无损失面板，跳过同宽检查`);
+    return true;
+  }
+  const bad = r.cols.filter((w) => w !== r.grid);
+  console.log(`  [${label}] 棋盘宽 ${r.grid} / 损失面板 ${r.cols.join(',')} → ${bad.length ? '不一致' : 'OK'}`);
+  return bad.length === 0;
+}
+
 async function backToLobby(page) {
   const back = page.locator('button', { hasText: '返回大厅' }).first();
   if (await back.isVisible().catch(() => false)) {
@@ -60,13 +119,30 @@ async function runViewport(browser, vp) {
   await page.waitForSelector('.lobby');
   await sleep(500);
   ok = (await checkOverflow(page, '大厅', vp.width)) && ok;
+  await checkHeight(page, '大厅', vp.height);
+  ok = (await checkNoWrap(page, '大厅', ['.lobby-subtitle'])) && ok;
   await shoot(page, `lobby-${vp.tag}`);
 
   await page.locator('.game-panel', { hasText: '纸牌对拼' }).locator('.panel-start').click();
   await page.waitForSelector('.game-screen');
   await sleep(1200);
   ok = (await checkOverflow(page, '纸牌', vp.width)) && ok;
+  await checkHeight(page, '纸牌·记牌', vp.height);
+  ok = (await checkNoWrap(page, '纸牌·记牌', ['.score-tag', '.center-note'])) && ok;
   await shoot(page, `card-${vp.tag}`);
+
+  // 打一个回合，核对揭示阶段的"X 吃掉 Y"整宽行不折行。
+  // 必须等 zone-active 出现：记牌阶段手牌还不可点，确认按钮也是 disabled。
+  await page.waitForSelector('.hand-zone.zone-active', { timeout: 15000 });
+  const cards = page.locator('.hand-zone.zone-active .hand-cards .card-view');
+  await cards.nth(0).click();
+  await page.locator('.action-bar .btn-primary:not([disabled])').click();
+  await page.waitForSelector('.center-note', { timeout: 15000 });
+  await sleep(1400);
+  ok = (await checkOverflow(page, '纸牌·揭示', vp.width)) && ok;
+  await checkHeight(page, '纸牌·揭示', vp.height);
+  ok = (await checkNoWrap(page, '纸牌·揭示', ['.center-note', '.score-tag'])) && ok;
+  await shoot(page, `card-reveal-${vp.tag}`);
 
   await backToLobby(page);
   const boardPanel = page.locator('.game-panel', { hasText: '棋盘翻棋' });
@@ -75,17 +151,28 @@ async function runViewport(browser, vp) {
   await page.waitForSelector('.board-grid');
   await sleep(700);
   const faceDown = () => page.locator('.board-cell:has(img[alt="牌背"])');
-  for (let i = 0; i < 8; i += 1) {
+  const captured = () => page.locator('.captured-col');
+  // 翻到两侧损失面板都有牌就停：同宽检查需要面板存在，多翻只是白等 AI 思考
+  for (let i = 0; i < 12; i += 1) {
+    if ((await captured().count()) >= 2) break;
     const before = await faceDown().count();
-    if (before <= 8) break;
+    if (before <= 4) break;
     await faceDown().nth(i % before).click();
-    for (let w = 0; w < 20; w += 1) {
-      await sleep(400);
+    for (let w = 0; w < 16; w += 1) {
+      await sleep(300);
       if ((await faceDown().count()) < before) break;
     }
-    await sleep(900);
+    await sleep(600);
   }
   ok = (await checkOverflow(page, '棋盘', vp.width)) && ok;
+  await checkHeight(page, '棋盘', vp.height);
+  ok = (await checkCapturedWidth(page, '棋盘')) && ok;
+  ok =
+    (await checkNoWrap(page, '棋盘', [
+      '.status-row .tag-seat',
+      '.score-row .score-tag',
+      '.turn-banner',
+    ])) && ok;
   await shoot(page, `board-${vp.tag}`);
 
   await backToLobby(page);
@@ -99,6 +186,8 @@ async function runViewport(browser, vp) {
   return ok;
 }
 
+const SHOT_NAMES = ['lobby', 'card', 'card-reveal', 'board', 'rules'];
+
 async function main() {
   await mkdir(RAW, { recursive: true });
   await mkdir(OUT, { recursive: true });
@@ -108,7 +197,7 @@ async function main() {
   const names = [];
   for (const vp of VIEWPORTS) {
     allOk = (await runViewport(browser, vp)) && allOk;
-    for (const p of ['lobby', 'card', 'board', 'rules']) names.push(`${p}-${vp.tag}`);
+    for (const p of SHOT_NAMES) names.push(`${p}-${vp.tag}`);
   }
   await browser.close();
 
@@ -117,7 +206,7 @@ async function main() {
     await sharp(`${RAW}/${name}.png`).resize({ width: 420 }).webp({ quality: 80 })
       .toFile(`${OUT}/${name}.webp`);
   }
-  console.log(allOk ? '\n所有视口无横向溢出' : '\n存在横向溢出，需修正样式');
+  console.log(allOk ? '\n布局检查全部通过' : '\n存在布局问题，见上方输出');
   if (!allOk) process.exit(1);
 }
 

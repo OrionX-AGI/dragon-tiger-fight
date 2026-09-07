@@ -103,6 +103,13 @@ button {
   white-space: nowrap;
 }
 
+/* 嵌在信息行里的小按钮（如手牌区表头的"查看弃牌"） */
+.btn-mini {
+  padding: 3px 10px;
+  font-size: 13px;
+  border-radius: 12px;
+}
+
 /* 触摸端按下反馈；hover 效果只在真有鼠标的设备上启用 */
 .btn-primary:active:not(:disabled),
 .btn-plain:active,
@@ -597,11 +604,12 @@ button {
   margin-top: 8px;
 }
 
+/* 只放"对"字标记，宽度只需撑开两张出牌之间的间隔 */
 .vs-block {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 220px;
+  min-width: 120px;
   text-align: center;
 }
 
@@ -629,6 +637,17 @@ button {
   letter-spacing: 2px;
   color: var(--crimson-deep);
   margin: 0;
+}
+
+/* 中央提示整宽独立一行：夹在两张手牌之间只剩百来像素，长文案必然折行 */
+.center-note {
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  font-family: 'KaiTi', 'STKaiti', serif;
+  letter-spacing: 2px;
+  color: var(--crimson-deep);
+  white-space: nowrap;
 }
 
 /* ---------- 页内结果面板 ---------- */
@@ -791,7 +810,14 @@ button {
   font-size: 14px;
 }
 
+/* 棋格尺寸参数化：损失面板要与棋盘同宽，各断点只改 --cell，宽度自动跟随，
+   免得在多个媒体查询里手工同步同一个数字。 */
 .board-wrap {
+  --cell: 106px;
+  --bgap: 8px;
+  --bpad: 14px;
+  --bbd: 3px;
+  --board-w: calc(var(--cell) * 4 + var(--bgap) * 3 + var(--bpad) * 2 + var(--bbd) * 2);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -805,20 +831,20 @@ button {
 
 .board-grid {
   display: grid;
-  grid-template-columns: repeat(4, 106px);
-  grid-gap: 8px;
-  padding: 14px;
+  grid-template-columns: repeat(4, var(--cell));
+  grid-gap: var(--bgap);
+  padding: var(--bpad);
   background: rgba(122, 90, 46, 0.25);
-  border: 3px solid var(--bronze);
+  border: var(--bbd) solid var(--bronze);
   border-radius: 12px;
   box-shadow: var(--shadow);
 }
 
-/* 棋格同样是 3:4，显式写死高度代替 aspect-ratio */
+/* 棋格同样是 3:4，显式算高度代替 aspect-ratio */
 .board-cell {
   position: relative;
-  width: 106px;
-  height: 141px;
+  width: var(--cell);
+  height: calc(var(--cell) * 4 / 3);
   border-radius: 8px;
   background: rgba(255, 252, 240, 0.55);
   border: 1px solid rgba(122, 90, 46, 0.35);
@@ -866,6 +892,11 @@ button {
 
 .captured-col > * + * {
   margin-top: 8px;
+}
+
+/* 损失区只需看清是哪几号牌，牌名反而挤 */
+.captured-col .card-name {
+  display: none;
 }
 
 /* ---------- 规则页 ---------- */
@@ -942,54 +973,100 @@ button {
 /* ---------- 窄屏适配（手机竖屏） ---------- */
 
 @media (max-width: 720px) {
+  /* ---- 大厅：目标是不滑动看完整屏，因此逐项收紧 ---- */
   .lobby {
     padding-left: 14px;
     padding-right: 14px;
+    padding-top: 16px;
+    padding-top: calc(16px + var(--safe-top));
+    padding-bottom: 16px;
+    padding-bottom: calc(16px + var(--safe-bottom));
   }
+  .lobby-header { margin-bottom: 14px; }
+  .lobby-header h1 { font-size: 40px; letter-spacing: 14px; text-indent: 14px; }
+  .lobby-subtitle { margin-top: 6px; font-size: 14px; letter-spacing: 1px; }
   /* 单列铺满：minmax 的 340px 下限在窄屏会撑出横向滚动 */
   .lobby-panels {
     grid-template-columns: 1fr;
-    grid-gap: 18px;
+    grid-gap: 12px;
   }
-  .lobby-header h1 { font-size: 44px; }
-  .game-panel { padding: 18px 16px; }
-  .panel-desc { min-height: 0; }
+  .game-panel { padding: 12px 14px; }
+  .game-panel h3 { font-size: 21px; letter-spacing: 4px; padding-bottom: 8px; }
+  .panel-desc {
+    min-height: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 8px 0;
+  }
+  .panel-row { margin-bottom: 8px; }
+  .row-label { width: 34px; font-size: 14px; }
+  .opt-btn { padding: 5px 11px; font-size: 14px; }
+  .panel-start { margin-top: 2px; }
+  .lobby-footer { margin-top: 14px; }
 
-  .card-md { width: 76px; height: 101px; }
-  .card-lg { width: 116px; height: 155px; }
+  .card-md { width: 70px; height: 93px; }
+  .card-lg { width: 92px; height: 123px; }
 
-  .play-area > * + * { margin-left: 14px; }
-  .vs-block { min-width: 120px; }
+  .play-area > * + * { margin-left: 10px; }
+  .vs-block { min-width: 56px; }
+  .play-area { min-height: 0; padding: 0; }
+  .vs-mark { width: 46px; height: 46px; font-size: 22px; }
+  .center-note { font-size: 16px; letter-spacing: 1px; }
+  .lost-row { margin-top: 4px; padding-top: 4px; }
   .game-screen { padding-left: 10px; padding-right: 10px; }
-  .hand-zone { padding: 8px 6px; }
+  .game-screen > * + * { margin-top: 4px; }
+  /* 底部只需让出固定操作栏的高度，桌面端的 88px 在手机上偏多 */
+  .game-screen {
+    padding-bottom: 72px;
+    padding-bottom: calc(72px + var(--safe-bottom));
+  }
+  .hand-zone { padding: 6px 5px; }
+  .zone-header { margin-bottom: 2px; }
+  .hand-cards { margin: -3px; padding-top: 2px; }
+  .hand-cards > * { margin: 3px; }
 
   .topbar h2 { font-size: 20px; letter-spacing: 4px; }
   .topbar > * + * { margin-left: 8px; }
   .btn-plain { padding: 7px 10px; font-size: 14px; }
+  .turn-banner { margin-top: 4px; font-size: 15px; }
 
-  /* 负外边距不能超过 .game-screen 的横向内边距，否则整页横向溢出 */
-  .board-wrap { margin: 0 -5px; }
-  .board-wrap > * { margin: 0 5px; }
+  /* ---- 棋盘：损失面板改为在棋盘上下各一块，与棋盘同宽 ---- */
+  .board-wrap {
+    --cell: 72px;
+    --bpad: 8px;
+    flex-direction: column;
+    align-items: center;
+    flex-wrap: nowrap;
+    margin: 0;
+  }
+  .board-wrap > * { margin: 0; }
+  /* 与棋盘之间留出间距，此前两者紧贴 */
+  .board-wrap > * + * { margin-top: 8px; }
 
-  .board-grid {
-    grid-template-columns: repeat(4, 72px);
-    padding: 8px;
-  }
-  .board-cell {
-    width: 72px;
-    height: 96px;
-  }
-  /* 损失区在窄屏挪到棋盘下方并排铺开 */
   .captured-col {
     flex-direction: row;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: center;
+    /* 与棋盘同宽，视觉上成一组 */
+    width: var(--board-w);
     min-width: 0;
-    min-height: 46px;
+    padding: 5px 6px;
+    /* 原先 min-height 46px 远小于牌高，牌会溢出面板看起来像重叠 */
+    margin: 0 auto;
   }
-  .captured-col > * + * {
-    margin-top: 0;
-    margin-left: 6px;
+  .captured-col > * {
+    margin: 2px 3px;
+  }
+  /* 缩到 38px：7 张牌（8 张即输）在同宽面板内稳定两行放下 */
+  .captured-col .card-view {
+    width: 38px;
+    height: 51px;
+  }
+  .captured-col .card-rank {
+    width: 15px;
+    height: 15px;
+    font-size: 10px;
   }
 
   .overlay-panel { padding: 24px 20px; }
@@ -1017,10 +1094,39 @@ button {
 
 /* 更窄的小屏（iPhone SE 一档） */
 @media (max-width: 400px) {
-  .lobby-header h1 { font-size: 36px; letter-spacing: 12px; text-indent: 12px; }
-  .card-md { width: 70px; height: 93px; }
-  .card-lg { width: 100px; height: 133px; }
-  .board-grid { grid-template-columns: repeat(4, 66px); }
-  .board-cell { width: 66px; height: 88px; }
+  .lobby-header h1 { font-size: 34px; letter-spacing: 10px; text-indent: 10px; }
+  .lobby-subtitle { font-size: 13px; }
+  /* 只改 --cell，棋盘宽与损失面板宽自动跟随 */
+  .board-wrap { --cell: 66px; }
   .btn-primary { padding: 9px 20px; font-size: 16px; letter-spacing: 2px; }
+  .center-note { font-size: 15px; letter-spacing: 0; }
+  .score-tag { padding: 5px 12px; font-size: 13px; }
+  .faction-tag { padding: 3px 9px; font-size: 13px; }
+}
+
+/* 矮屏（360x640 一档）：纵向再压一档。纸牌页有两副 2x4 手牌加中央出牌区，
+   先天装不进 640px，这里尽量少滑动，而不是把牌缩到看不清。 */
+@media (max-height: 700px) {
+  .lobby-header { margin-bottom: 10px; }
+  .lobby-header h1 { font-size: 32px; }
+  .panel-desc { margin: 6px 0; }
+  .lobby-footer { margin-top: 10px; }
+  .btn-primary { padding: 8px 22px; }
+
+  .card-md { width: 66px; height: 88px; }
+  .card-lg { width: 88px; height: 117px; }
+  .vs-mark { width: 40px; height: 40px; font-size: 19px; }
+  .hand-zone { padding: 5px 4px; }
+  .center-note { font-size: 14px; }
+  .turn-banner { font-size: 14px; margin-top: 2px; }
+  .score-tag { padding: 4px 10px; font-size: 12px; }
+  .faction-tag { padding: 2px 8px; font-size: 12px; }
+  .topbar h2 { font-size: 18px; letter-spacing: 2px; }
+
+  /* 棋盘页在 640px 高只差二十几像素就能一屏放下，这里把棋格与损失牌各收一档补上 */
+  .board-wrap { --cell: 64px; }
+  .captured-col { padding: 4px 5px; }
+  .captured-col .card-view { width: 34px; height: 45px; }
+  .status-row > * { margin: 3px; }
+  .score-row { margin: 0; }
 }
