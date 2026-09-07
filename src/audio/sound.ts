@@ -1,5 +1,5 @@
 /**
- * 声音引擎：背景音乐与全部音效都用 Web Audio 在运行时合成，零媒体文件。
+ * 声音引擎：背景音乐与音效全部用 Web Audio 在运行时合成，零媒体文件。
  *
  * 为什么不用音频文件：
  *   - 小红书小工具是离线 zip 包，媒体文件必须打进包内，一段 1 分钟 BGM
@@ -8,11 +8,19 @@
  *     Web Audio 直接走音频线程，不经过媒体元素，不受此限制。
  *   - 完全自己合成，无任何第三方授权问题。
  *
+ * 音效设计（实测教训：模仿龙吟虎啸的拟声很难听，简短干净的乐音才好听）：
+ *   - dragon（龙方吃子）：三连升调铃音，明亮清脆
+ *   - tiger（虎方吃子）：两连降调木鱼声，低沉温润，与龙方一升一降好分辨
+ *   - mutual（同归于尽）：金属撞击 + 低频闷响
+ *   - draw（和棋）：一记磬声
+ *   - victory / defeat（终局按玩家胜负播，不按阵营）：军号上行版胜利号 /
+ *     下行三音的失落乐句
+ *
  * 实现要点：
- *   - 所有音色在初始化时用纯 JS 数学预渲染进 AudioBuffer（古筝拨弦用
- *     Karplus-Strong 算法），之后播放只是零成本的 buffer 调度。
- *     刻意不用 ScriptProcessorNode：棋盘困难 AI 会阻塞主线程约 1 秒，
- *     实时生成必然爆音。
+ *   - 所有音色在初始化时用纯 JS 数学预渲染进 AudioBuffer（拨弦用
+ *     Karplus-Strong 算法，其余逐采样加法合成），之后播放只是零成本的
+ *     buffer 调度。刻意不用 ScriptProcessorNode：棋盘困难 AI 会阻塞主线程
+ *     约 1 秒，实时生成必然爆音。
  *   - BGM 调度器提前约 3 秒排音符，主线程被 AI 占住时音乐不断。
  *   - 浏览器自动播放策略要求用户手势后才能出声，main.tsx 在首次
  *     pointerdown 时调用 ensureAudio()。
@@ -24,7 +32,7 @@ import { createLogger } from '../core/logger';
 
 const log = createLogger('audio');
 
-export type SfxName = 'dragon' | 'tiger' | 'mutual' | 'draw';
+export type SfxName = 'dragon' | 'tiger' | 'mutual' | 'draw' | 'victory' | 'defeat';
 
 const MUSIC_KEY = 'longhu:music';
 const SFX_KEY = 'longhu:sfx';
@@ -61,26 +69,35 @@ const sfxBuffers: Partial<Record<SfxName, AudioBuffer>> = {};
 
 // ---------- BGM 乐谱 ----------
 
-/** 拍速与循环长度：66 BPM、64 拍一循环（约 58 秒） */
-const SPB = 60 / 66;
+/** 拍速与循环长度：84 BPM、64 拍一循环（约 46 秒） */
+const SPB = 60 / 84;
 const LOOP_BEATS = 64;
 
 /**
- * [拍号, MIDI 音高, 音量]。A 羽调式五声音阶（A C D E G），
- * 旋律声部 + 每 8-12 拍一个的低音声部。初始化时按拍号排序。
+ * [拍号, MIDI 音高, 音量]。A 羽调式五声音阶（A C D E G）。
+ * 旋律基本一拍一音、句尾留长音，比首版（66 BPM、大量空拍）更连贯流畅；
+ * 低音声部每 8 拍一个撑住底。初始化时按拍号排序。
  */
 const SEQ: Array<[number, number, number]> = [
   // 低音声部
-  [0, 45, 0.4], [12, 52, 0.34], [16, 50, 0.36], [24, 45, 0.4],
-  [32, 45, 0.4], [44, 52, 0.34], [48, 50, 0.36], [56, 45, 0.4],
-  // 旋律声部：起 - 承 - 转 - 合 四句
-  [0, 69, 0.6], [1.5, 72, 0.46], [2, 74, 0.55], [4, 76, 0.62], [6, 74, 0.46],
-  [7, 72, 0.4], [8, 69, 0.56], [11, 67, 0.38], [12, 69, 0.5],
-  [16, 64, 0.52], [17.5, 67, 0.4], [18, 69, 0.55], [20, 72, 0.58], [22, 69, 0.46],
-  [23, 67, 0.38], [24, 64, 0.5], [27, 62, 0.36], [28, 64, 0.46],
-  [32, 69, 0.6], [33.5, 72, 0.46], [34, 74, 0.56], [36, 76, 0.62], [38, 74, 0.46],
-  [39, 72, 0.4], [40, 74, 0.52], [43, 72, 0.38], [44, 69, 0.55],
-  [48, 67, 0.46], [50, 64, 0.44], [52, 62, 0.4], [54, 64, 0.46], [56, 69, 0.56],
+  [0, 45, 0.38], [8, 52, 0.32], [16, 50, 0.34], [24, 45, 0.38],
+  [32, 45, 0.38], [40, 52, 0.32], [48, 50, 0.34], [56, 45, 0.38],
+  // 旋律声部：起
+  [0, 69, 0.56], [1, 72, 0.48], [2, 74, 0.52], [3.5, 76, 0.58], [4, 74, 0.46],
+  [5, 72, 0.44], [6, 69, 0.5], [7.5, 67, 0.4], [8, 69, 0.52],
+  [10, 72, 0.46], [11, 74, 0.48], [12, 76, 0.54], [13, 74, 0.44], [14, 72, 0.42], [15, 74, 0.46],
+  // 承
+  [16, 76, 0.54], [17, 79, 0.5], [18, 76, 0.46], [19, 74, 0.44], [20, 72, 0.48],
+  [21, 74, 0.44], [22, 72, 0.42], [23, 69, 0.46], [24, 72, 0.48], [25, 69, 0.44],
+  [26, 67, 0.4], [27, 69, 0.5], [30, 64, 0.4], [31, 67, 0.42],
+  // 转
+  [32, 69, 0.56], [33, 72, 0.48], [34, 74, 0.52], [35.5, 76, 0.56], [36, 79, 0.54],
+  [37, 76, 0.46], [38, 74, 0.44], [39, 72, 0.42], [40, 74, 0.5], [41, 76, 0.48],
+  [42, 74, 0.44], [43, 72, 0.42], [44, 69, 0.5], [45, 72, 0.44], [46, 69, 0.42], [47, 67, 0.4],
+  // 合
+  [48, 64, 0.46], [49, 67, 0.42], [50, 69, 0.5], [51, 72, 0.46], [52, 69, 0.44],
+  [53, 67, 0.4], [54, 64, 0.42], [55, 62, 0.38], [56, 64, 0.44], [57, 67, 0.42],
+  [58, 69, 0.54], [62, 69, 0.36],
 ];
 let seqSorted = false;
 
@@ -98,7 +115,7 @@ function midiToFreq(m: number): number {
   return 440 * Math.pow(2, (m - 69) / 12);
 }
 
-/** 峰值归一化到 0.85，并做尾部 120ms 淡出消除截断爆音 */
+/** 峰值归一化到 0.85，并做尾部 100ms 淡出消除截断爆音 */
 function polish(data: Float32Array, sr: number): void {
   let peak = 0;
   for (let i = 0; i < data.length; i++) {
@@ -106,7 +123,7 @@ function polish(data: Float32Array, sr: number): void {
     if (a > peak) peak = a;
   }
   const k = peak > 0 ? 0.85 / peak : 1;
-  const fade = Math.min(data.length, Math.floor(sr * 0.12));
+  const fade = Math.min(data.length, Math.floor(sr * 0.1));
   for (let i = 0; i < data.length; i++) {
     let v = data[i] * k;
     const left = data.length - i;
@@ -119,6 +136,47 @@ function toBuffer(c: AudioContext, data: Float32Array): AudioBuffer {
   const buf = c.createBuffer(1, data.length, c.sampleRate);
   buf.getChannelData(0).set(data);
   return buf;
+}
+
+/**
+ * 往波形里叠一枚音符：谐波叠加 + 起振 / 指数衰减 / 尾部收音包络。
+ * harmonics[k] 是第 k+1 次谐波的幅度；tau 大约等于余音时长。
+ */
+function addNote(
+  data: Float32Array,
+  sr: number,
+  o: {
+    at: number;
+    freq: number;
+    dur: number;
+    vol: number;
+    attack: number;
+    tau: number;
+    harmonics: number[];
+    /** 颤音幅度（Hz），军号长音用 */
+    vibrato?: number;
+    /** 整个音期间的音高滑落（半音数，负为下滑） */
+    bend?: number;
+  },
+): void {
+  const start = Math.floor(o.at * sr);
+  const n = Math.min(data.length - start, Math.floor(o.dur * sr));
+  const relSamples = Math.max(1, Math.floor(sr * 0.035));
+  let phase = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / sr;
+    let f = o.freq;
+    if (o.bend) f *= Math.pow(2, (o.bend * (t / o.dur)) / 12);
+    if (o.vibrato) f += Math.sin(2 * Math.PI * 5.5 * t) * o.vibrato * Math.min(1, t / 0.25);
+    phase += (2 * Math.PI * f) / sr;
+    let v = 0;
+    for (let h = 0; h < o.harmonics.length; h++) {
+      if (o.harmonics[h] !== 0) v += o.harmonics[h] * Math.sin((h + 1) * phase);
+    }
+    const env =
+      Math.min(1, t / o.attack) * Math.exp(-t / o.tau) * Math.min(1, (n - i) / relSamples);
+    data[start + i] += v * env * o.vol;
+  }
 }
 
 /**
@@ -153,65 +211,28 @@ function renderPluck(c: AudioContext, freq: number): AudioBuffer {
   return toBuffer(c, out);
 }
 
-/** 龙吟：基频先扬后抑的多谐波啸声，带渐强颤音与气声 */
+/** 龙方吃子：E5→A5→E6 三连升调铃音，明亮清脆 */
 function renderDragon(c: AudioContext): AudioBuffer {
   const sr = c.sampleRate;
-  const dur = 1.8;
-  const n = Math.floor(sr * dur);
-  const out = new Float32Array(n);
-  let phase = 0;
-  let noiseLp = 0;
-  for (let i = 0; i < n; i++) {
-    const t = i / sr;
-    // 基频：150Hz 起，0.45s 处顶到 ~350Hz，再滑落回 ~190Hz（高斯包络）
-    const bump = Math.exp(-Math.pow(t - 0.45, 2) / (2 * 0.28 * 0.28));
-    const vib = Math.sin(2 * Math.PI * 5.5 * t) * 9 * Math.min(1, t / 0.5);
-    const f = 150 + 200 * bump + vib;
-    phase += (2 * Math.PI * f) / sr;
-    // 谐波叠加后软削波，出一点"啸"的毛边
-    const raw =
-      Math.sin(phase) +
-      0.55 * Math.sin(2 * phase) +
-      0.35 * Math.sin(3 * phase) +
-      0.22 * Math.sin(4 * phase) +
-      0.14 * Math.sin(5 * phase);
-    const tone = Math.tanh(1.6 * raw);
-    // 气声：低通白噪
-    noiseLp = 0.92 * noiseLp + 0.08 * (Math.random() * 2 - 1);
-    const attack = Math.min(1, t / 0.07);
-    const release = t > 1.0 ? Math.exp(-(t - 1.0) / 0.32) : 1;
-    out[i] = (tone + 1.6 * noiseLp) * attack * release;
-  }
+  const out = new Float32Array(Math.floor(sr * 0.55));
+  const bell = [1, 0.35, 0.12];
+  addNote(out, sr, { at: 0, freq: 659.3, dur: 0.4, vol: 0.7, attack: 0.005, tau: 0.14, harmonics: bell });
+  addNote(out, sr, { at: 0.08, freq: 880, dur: 0.4, vol: 0.75, attack: 0.005, tau: 0.14, harmonics: bell });
+  addNote(out, sr, { at: 0.16, freq: 1318.5, dur: 0.39, vol: 0.85, attack: 0.005, tau: 0.16, harmonics: bell });
   polish(out, sr);
   return toBuffer(c, out);
 }
 
-/** 虎啸：低频下坠的咆哮，27Hz 幅度调制出喉音颗粒感，加隆隆低噪 */
+/** 虎方吃子：A4→D4 两连降调木鱼声，低沉温润，与龙方一升一降 */
 function renderTiger(c: AudioContext): AudioBuffer {
   const sr = c.sampleRate;
-  const dur = 1.5;
-  const n = Math.floor(sr * dur);
-  const out = new Float32Array(n);
-  let phase = 0;
-  let rumble = 0;
-  for (let i = 0; i < n; i++) {
-    const t = i / sr;
-    const f = 115 - 45 * Math.min(1, t / dur);
-    phase += (2 * Math.PI * f) / sr;
-    const raw =
-      Math.sin(phase) +
-      0.7 * Math.sin(2 * phase) +
-      0.5 * Math.sin(3 * phase) +
-      0.3 * Math.sin(4 * phase);
-    const tone = Math.tanh(2.2 * raw);
-    // 喉音：27Hz 颤幅
-    const growl = 1 - 0.5 * (0.5 + 0.5 * Math.sin(2 * Math.PI * 27 * t));
-    // 低频隆隆声
-    rumble = 0.965 * rumble + 0.035 * (Math.random() * 2 - 1);
-    const attack = Math.min(1, t / 0.05);
-    const release = t > 0.85 ? Math.exp(-(t - 0.85) / 0.28) : 1;
-    out[i] = (tone * growl + 2.4 * rumble) * attack * release;
-  }
+  const out = new Float32Array(Math.floor(sr * 0.5));
+  // 奇次谐波近似木头空腔的音色
+  const wood = [1, 0, 0.28, 0, 0.09];
+  addNote(out, sr, { at: 0, freq: 440, dur: 0.32, vol: 0.8, attack: 0.004, tau: 0.09, harmonics: wood });
+  addNote(out, sr, { at: 0.11, freq: 293.7, dur: 0.38, vol: 0.9, attack: 0.004, tau: 0.12, harmonics: wood });
+  // 第一声垫一点低频身体感
+  addNote(out, sr, { at: 0, freq: 110, dur: 0.25, vol: 0.5, attack: 0.004, tau: 0.1, harmonics: [1] });
   polish(out, sr);
   return toBuffer(c, out);
 }
@@ -263,6 +284,33 @@ function renderDraw(c: AudioContext): AudioBuffer {
     const attack = Math.min(1, t / 0.012);
     out[i] = v * attack;
   }
+  polish(out, sr);
+  return toBuffer(c, out);
+}
+
+/** 玩家获胜：军号上行 G4-C5-E5-G5 胜利号，末音带颤音拉长 */
+function renderVictory(c: AudioContext): AudioBuffer {
+  const sr = c.sampleRate;
+  const out = new Float32Array(Math.floor(sr * 1.5));
+  // 亮铜管音色：谐波衰减慢
+  const brass = [1, 0.6, 0.45, 0.3, 0.2, 0.12];
+  const base = { vol: 0.6, attack: 0.02, tau: 2.5, harmonics: brass };
+  addNote(out, sr, { at: 0, freq: 392, dur: 0.18, ...base });
+  addNote(out, sr, { at: 0.19, freq: 523.3, dur: 0.18, ...base });
+  addNote(out, sr, { at: 0.38, freq: 659.3, dur: 0.18, ...base });
+  addNote(out, sr, { at: 0.57, freq: 784, dur: 0.88, vol: 0.65, attack: 0.02, tau: 0.9, harmonics: brass, vibrato: 6 });
+  polish(out, sr);
+  return toBuffer(c, out);
+}
+
+/** 玩家落败：E4-C4-A3 下行三音，柔音色，末音再往下滑半音 */
+function renderDefeat(c: AudioContext): AudioBuffer {
+  const sr = c.sampleRate;
+  const out = new Float32Array(Math.floor(sr * 1.35));
+  const soft = [1, 0.3, 0.1];
+  addNote(out, sr, { at: 0, freq: 329.6, dur: 0.34, vol: 0.7, attack: 0.04, tau: 0.5, harmonics: soft });
+  addNote(out, sr, { at: 0.35, freq: 261.6, dur: 0.34, vol: 0.7, attack: 0.04, tau: 0.5, harmonics: soft });
+  addNote(out, sr, { at: 0.7, freq: 220, dur: 0.6, vol: 0.75, attack: 0.04, tau: 0.5, harmonics: soft, bend: -1 });
   polish(out, sr);
   return toBuffer(c, out);
 }
@@ -360,6 +408,8 @@ export function ensureAudio(): void {
   sfxBuffers.tiger = renderTiger(ctx);
   sfxBuffers.mutual = renderMutual(ctx);
   sfxBuffers.draw = renderDraw(ctx);
+  sfxBuffers.victory = renderVictory(ctx);
+  sfxBuffers.defeat = renderDefeat(ctx);
   // 预渲染乐谱里用到的所有音高，避免播放中途现算
   for (let i = 0; i < SEQ.length; i++) {
     const midi = SEQ[i][1];
@@ -381,7 +431,7 @@ export function ensureAudio(): void {
   log.info('声音引擎就绪', { 合成耗时毫秒: Date.now() - started, 音乐: musicOn, 音效: sfxOn });
 }
 
-/** 播放一枚音效（龙吟 / 虎啸 / 同归于尽 / 和棋） */
+/** 播放一枚音效 */
 export function playSfx(name: SfxName): void {
   if (!sfxOn || !ctx || !sfxGain) return;
   const buf = sfxBuffers[name];

@@ -177,13 +177,16 @@ export default function CardGameScreen({ config, onExit }: Props) {
     setSelected(null);
     setPhase('reveal');
 
-    // 音效延迟到翻牌动画（约 0.55s）转到正面的时刻
+    // 音效延迟到翻牌动画（约 0.55s）转到正面的时刻。
+    // 终局按玩家胜负播（胜利号/失落音），局中按吃子方播
     const round = next.history[next.history.length - 1];
     const sfx =
       next.outcome === 'draw'
         ? 'draw'
         : next.outcome !== null
-          ? next.outcome
+          ? next.outcome === playerFaction
+            ? 'victory'
+            : 'defeat'
           : round.winner === 'both'
             ? 'mutual'
             : round.winner;
@@ -211,7 +214,7 @@ export default function CardGameScreen({ config, onExit }: Props) {
     log.info('玩家认输', { 认输方: playerFaction });
     if (game.outcome === null) {
       setGame(surrender(game, playerFaction));
-      playSfx(aiFaction); // 认输即对方获胜，播对方阵营的啸声
+      playSfx('defeat'); // 认输即本局落败
     }
     setSurrenderAsk(false);
     setSelected(null);
