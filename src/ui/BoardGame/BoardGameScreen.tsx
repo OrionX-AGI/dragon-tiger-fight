@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { requestBoardMove } from '../../ai/aiClient';
 import { AI_LEVEL_LABELS } from '../../ai/cardAI';
+import { playSfx } from '../../audio/sound';
 import type { BoardAction, BoardGameState, PlayerSlot } from '../../core/boardGame';
 import {
   QUIET_MOVES_FOR_DRAW,
@@ -96,6 +97,24 @@ export default function BoardGameScreen({ config, onExit }: Props) {
     setScore((s) => ({ ...s, [key]: s[key as keyof typeof s] + 1 }));
   }
 
+  /**
+   * 按这步行动的结果配音效：吃子播吃子方的啸声（龙被吃是虎啸），
+   * 同时减员播同尽音；一旦终局只播终局音，不与吃子音叠放。
+   */
+  function playBoardSfx(prev: BoardGameState, next: BoardGameState) {
+    if (next.outcome !== null) {
+      playSfx(next.outcome === 'draw' ? 'draw' : next.outcome);
+      return;
+    }
+    const lostOf = (s: BoardGameState, f: Faction) =>
+      s.captured.filter((c) => c.faction === f).length;
+    const dragonLost = lostOf(next, 'dragon') - lostOf(prev, 'dragon');
+    const tigerLost = lostOf(next, 'tiger') - lostOf(prev, 'tiger');
+    if (dragonLost > 0 && tigerLost > 0) playSfx('mutual');
+    else if (dragonLost > 0) playSfx('tiger');
+    else if (tigerLost > 0) playSfx('dragon');
+  }
+
   function perform(action: BoardAction) {
     const next = applyAction(game, action);
     setGame(next);
@@ -103,6 +122,7 @@ export default function BoardGameScreen({ config, onExit }: Props) {
     setLastAction(action);
     setMessage(null);
     bumpScore(next);
+    playBoardSfx(game, next);
   }
 
   // AI 行棋：请求 Worker 计算（不阻塞界面），并保证至少停顿片刻更自然
@@ -120,6 +140,7 @@ export default function BoardGameScreen({ config, onExit }: Props) {
       setSelected(null);
       setLastAction(action);
       bumpScore(next);
+      playBoardSfx(game, next);
     })();
     return () => {
       cancelled = true;
@@ -183,6 +204,7 @@ export default function BoardGameScreen({ config, onExit }: Props) {
     setSurrenderAsk(false);
     setMessage(null);
     bumpScore(next);
+    playBoardSfx(game, next);
   }
 
   /** 返回大厅：对局进行中先确认，防止误点 */

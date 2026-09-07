@@ -179,6 +179,17 @@ button {
   margin-top: 36px;
 }
 
+/* 大厅底部的音乐/音效开关 */
+.sound-toggles {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.sound-toggles > * + * {
+  margin-left: 10px;
+}
+
 /* ---------- 牌面 ---------- */
 
 .card-view {
