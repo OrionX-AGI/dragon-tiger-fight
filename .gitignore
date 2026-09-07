@@ -1,3 +1,9 @@
 node_modules/
 dist/
 *.local
+
+# 开发过程中的 Cursor 计划文件，不随仓库分发
+.cursor/plans/
+
+# 截图脚本的原始 PNG 中间产物（最终 webp 在 docs/screenshots/）
+scripts/.shots-raw/

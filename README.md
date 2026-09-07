@@ -7,7 +7,24 @@
 
 均支持人机对战（三档难度 AI）与**在线对战**（局域网真人对决）。纸牌对拼采用**三局两胜**赛制（和局不计胜场，自动加赛）。
 
-完整规则见 [龙虎斗游戏规则说明书.md](./龙虎斗游戏规则说明书.md)。
+完整规则见 [龙虎斗游戏规则说明书.md](./龙虎斗游戏规则说明书.md)，想快速上手看 [极简规则](./龙虎斗极简规则.md)。
+
+> 本分支是**含在线对战的完整版**。若只想要纯人机对战的精简版本，请切到 `main` 分支。
+
+## 游戏截图
+
+<p align="center"><img src="docs/screenshots/lobby.webp" width="860" alt="游戏大厅"></p>
+
+| 纸牌对拼 · 开局记牌 | 纸牌对拼 · 亮牌定胜负 |
+| :---: | :---: |
+| ![开局记牌](docs/screenshots/card-preview.webp) | ![亮牌定胜负](docs/screenshots/card-play.webp) |
+| 八张牌先明牌亮相数秒，随后依次扣暗，考验记牌功力 | 双方同时暗出一张，一起翻开按克制关系定胜负 |
+| **棋盘翻棋 · 中局** | **极简规则 · 1 分钟上手** |
+| ![棋盘翻棋](docs/screenshots/board.webp) | ![极简规则](docs/screenshots/rules.webp) |
+| 4×4 棋盘翻牌、行棋、吃子，两侧栏记录双方损失 | 只讲核心差异化规则，看一眼就能开打 |
+| **在线大厅 · 三种匹配方式** | **牌桌 · 准备倒计时** |
+| ![在线大厅](docs/screenshots/online-lobby.webp) | ![在线牌桌](docs/screenshots/online-room.webp) |
+| 自动匹配、创建房间、输房间码，或直接从牌桌列表加入 | 一方准备后开始 15 秒倒计时，超时未准备会被移出房间 |
 
 ## 一键启动（推荐）
 
@@ -110,4 +127,11 @@ src/
 └── ui/          React 界面组件
 server/          联机服务器（Node + ws）：房间与匹配、权威对局会话、静态托管
 public/assets/   AI 生成的国风牌面插画
+scripts/         启动脚本、牌面压缩、联机自检、README 截图生成
+docs/screenshots/ README 展示用的界面截图
 ```
+
+## 许可证
+
+[MIT](./LICENSE)。可自由使用、修改、商用，保留版权声明即可。
+`public/assets/` 下的牌面插画由 AI 生成，同样按 MIT 授权。
