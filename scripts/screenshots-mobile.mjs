@@ -143,6 +143,27 @@ async function checkCapturedWidth(page, label) {
   return bad.length === 0;
 }
 
+/** 设置页的开关组要贴右，右边缘与面板内容区右边缘齐平 */
+async function checkRightAligned(page, label) {
+  const r = await page.evaluate(() => {
+    const panel = document.querySelector('.settings-panel');
+    if (!panel) return null;
+    const cs = getComputedStyle(panel);
+    const edge = panel.getBoundingClientRect().right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+    return Array.from(panel.querySelectorAll('.opt-group')).map((g) =>
+      Math.round(g.getBoundingClientRect().right - edge),
+    );
+  });
+  if (!r) {
+    console.log(`  [${label}] 无设置面板，跳过右对齐检查`);
+    return true;
+  }
+  // opt-group 用 4px 子项外边距造间距，右边缘会外扩 4px，属预期
+  const bad = r.filter((o) => Math.abs(o) > 5);
+  console.log(`  [${label}] 开关组右边缘偏移 ${r.join(',')}px → ${bad.length ? '未贴右' : 'OK'}`);
+  return bad.length === 0;
+}
+
 async function backToLobby(page) {
   const back = page.locator('button', { hasText: '返回大厅' }).first();
   if (await back.isVisible().catch(() => false)) {
@@ -246,11 +267,21 @@ async function runViewport(browser, vp) {
   ok = (await checkOverflow(page, '规则', vp.width)) && ok;
   await shoot(page, `rules-${vp.tag}`);
 
+  await backToLobby(page);
+  await page.locator('.lobby-footer button', { hasText: '设置' }).click();
+  await page.waitForSelector('.settings-panel');
+  await sleep(400);
+  ok = (await checkOverflow(page, '设置', vp.width)) && ok;
+  // "背景音乐"四个字曾被 42px 定宽的 .row-label 挤成两行
+  ok = (await checkNoWrap(page, '设置', ['.settings-panel .row-label'])) && ok;
+  ok = (await checkRightAligned(page, '设置')) && ok;
+  await shoot(page, `settings-${vp.tag}`);
+
   await ctx.close();
   return ok;
 }
 
-const SHOT_NAMES = ['lobby', 'card', 'card-reveal', 'card-discard', 'board', 'rules'];
+const SHOT_NAMES = ['lobby', 'card', 'card-reveal', 'card-discard', 'board', 'rules', 'settings'];
 
 async function main() {
   await mkdir(RAW, { recursive: true });

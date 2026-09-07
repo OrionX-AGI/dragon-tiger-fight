@@ -15,6 +15,7 @@
 - **棋盘翻棋**：4×4 棋盘上翻牌、行棋、吃子的策略对抗。
 
 均为人机对战（三档难度 AI），无需联网。纸牌对拼采用**三局两胜**赛制（和局不计胜场，自动加赛）。
+背景音乐与音效由 Web Audio 实时合成，不含任何音频文件，可在大厅的「设置」里分别开关。
 
 完整规则见 [龙虎斗游戏规则说明书.md](./龙虎斗游戏规则说明书.md)，想快速上手看 [极简规则](./龙虎斗极简规则.md)。
 
@@ -49,6 +50,7 @@ npm start       # 启动游戏并自动打开浏览器
 npm run dev     # 启动开发服务器（不自动开浏览器）
 npm test        # 运行单元测试
 npm run build   # 类型检查 + 生产构建
+npm run build:xhs  # 打小红书小工具离线包，产物在 output/
 ```
 
 依赖说明见 [依赖清单.md](./依赖清单.md)（实际安装依据 `package.json` 与 `package-lock.json`）。
@@ -93,16 +95,16 @@ src/
 │   ├── rules.ts       克制关系判定
 │   ├── cardGame.ts    纸牌玩法状态机
 │   └── boardGame.ts   棋盘玩法状态机
-├── ai/          纸牌 AI（精确博弈求解）与棋盘 AI（PIMC 搜索），计算跑在 Web Worker
+├── ai/          纸牌 AI（精确博弈求解）与棋盘 AI（PIMC 搜索），跑在主线程（容器禁用 Worker）
+├── audio/       背景音乐与音效的 Web Audio 合成引擎（无音频文件）
 ├── themes/      主题皮肤包（牌名与插画映射，规则只认阵营+编号）
 └── ui/          React 界面组件
 public/assets/   AI 生成的国风牌面插画
-scripts/         启动脚本、牌面压缩、README 截图生成
-docs/screenshots/ README 展示用的界面截图
+scripts/         启动脚本、小工具打包、图标与截图生成
+docs/screenshots/        README 展示用的界面截图
+docs/screenshots-mobile/ 手机竖屏布局核对截图
+docs/icon/               小工具上传用的方形图标
 ```
-
-> 说明：带局域网在线对战的完整版本保存在 `online-mode` 分支，
-> 当前 `main` 分支为纯人机对战版（主演进方向）。
 
 ## 许可证
 

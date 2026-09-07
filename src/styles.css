@@ -258,8 +258,24 @@ button {
 /* 设置页：一块窄面板居中即可 */
 .settings-panel {
   max-width: 420px;
-  margin: 24px auto 0;
+  margin: 28px auto 0;
   width: 100%;
+}
+
+/* 设置项：名称左对齐占一行，开关推到右边。
+   基线的 .row-label 是给"难度""阵营"两字标签定的 42px 定宽，
+   "背景音乐"四个字会折行，这里放开宽度并禁止换行。 */
+.settings-panel .row-label {
+  width: auto;
+  white-space: nowrap;
+}
+
+.settings-panel .opt-group {
+  margin-left: auto;
+}
+
+.settings-panel .panel-row:last-child {
+  margin-bottom: 0;
 }
 
 /* ---------- 牌面 ---------- */
