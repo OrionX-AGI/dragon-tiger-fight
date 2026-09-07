@@ -11,14 +11,16 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, 'dist');
-const ZIP = path.join(ROOT, '龙虎斗-小红书小工具.zip');
+/** 打包产物统一放 output/，不弄脏项目根目录 */
+const OUT_DIR = path.join(ROOT, 'output');
+const ZIP = path.join(OUT_DIR, '龙虎斗-小红书小工具.zip');
 const AUDIT = path.join(ROOT, '.claude/minitool-zip-builder/scripts/audit_artifact.mjs');
 
 /** 牌面在手机上最宽约 116px，按 DPR 3 留足余量取 360px */
@@ -194,6 +196,7 @@ function audit(target, label) {
 
 async function makeZip() {
   console.log('[5/6] 压缩 dist 内容为 zip');
+  await mkdir(OUT_DIR, { recursive: true });
   await rm(ZIP, { force: true });
   const { default: ZipWriter } = await import('./zip-writer.mjs');
   const files = await walk(DIST);

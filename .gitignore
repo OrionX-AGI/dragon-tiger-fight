@@ -10,3 +10,4 @@ scripts/.shots-raw/
 
 # 小红书小工具打包产物
 *.zip
+output/
