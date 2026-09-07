@@ -15,8 +15,8 @@ const OUT = 'docs/screenshots';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function shoot(page, name) {
-  await page.screenshot({ path: `${RAW}/${name}.png` });
+async function shoot(page, name, opts = {}) {
+  await page.screenshot({ path: `${RAW}/${name}.png`, ...opts });
   console.log(`  captured ${name}`);
 }
 
@@ -46,7 +46,7 @@ async function main() {
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await page.waitForSelector('.lobby');
   await sleep(600);
-  await shoot(page, 'lobby');
+  await shoot(page, 'lobby', { fullPage: true }); // 面板可能超出一屏
 
   console.log('纸牌对拼');
   await page.locator('.game-panel', { hasText: '纸牌对拼' }).locator('.panel-start').click();
