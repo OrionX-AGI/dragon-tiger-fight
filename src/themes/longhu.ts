@@ -3,7 +3,10 @@ import { RANKS } from '../core/types';
 
 export interface ThemeCardInfo {
   name: string;
-  /** 牌面插画路径（public 下），加载失败时界面回退为文字牌面 */
+  /**
+   * 牌面插画路径（public 下），加载失败时界面回退为文字牌面。
+   * 必须是 `./` 开头的相对路径：小工具是离线 zip 包，绝对路径 `/assets/...` 解析不到。
+   */
   image: string;
 }
 
@@ -13,7 +16,6 @@ export interface Theme {
   factionNames: Record<Faction, string>;
   cards: Record<Faction, Record<Rank, ThemeCardInfo>>;
   cardBack: string;
-  boardTexture: string;
 }
 
 const dragonNames: Record<Rank, string> = {
@@ -43,7 +45,7 @@ function buildCards(faction: Faction, names: Record<Rank, string>): Record<Rank,
   for (const rank of RANKS) {
     result[rank] = {
       name: names[rank],
-      image: `/assets/cards/${faction}-${rank}.webp`,
+      image: `./assets/cards/${faction}-${rank}.webp`,
     };
   }
   return result;
@@ -57,8 +59,7 @@ export const longhuTheme: Theme = {
     dragon: buildCards('dragon', dragonNames),
     tiger: buildCards('tiger', tigerNames),
   },
-  cardBack: '/assets/cards/back.webp',
-  boardTexture: '/assets/board-texture.webp',
+  cardBack: './assets/cards/back.webp',
 };
 
 export function cardInfo(theme: Theme, card: Card): ThemeCardInfo {

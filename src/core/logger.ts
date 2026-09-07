@@ -150,9 +150,9 @@ export function createLogger(category: LogCategory): Logger {
  *   龙虎斗日志.导出()  复制为文本
  */
 export function installLogBridge(): void {
-  // 仅浏览器环境有效（Node 服务器复用本模块时跳过）
-  const g = globalThis as unknown as Record<string, unknown>;
-  if (typeof g.window === 'undefined') return;
+  // 仅浏览器环境有效；不用 globalThis（Chrome 71 才支持，低于小工具 Chrome 61 基线）
+  if (typeof window === 'undefined') return;
+  const g = window as unknown as Record<string, unknown>;
   const bridge = {
     打印: () => console.log(formatLog()),
     导出: () => formatLog(),

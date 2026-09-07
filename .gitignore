@@ -7,3 +7,6 @@ dist/
 
 # 截图脚本的原始 PNG 中间产物（最终 webp 在 docs/screenshots/）
 scripts/.shots-raw/
+
+# 小红书小工具打包产物
+*.zip

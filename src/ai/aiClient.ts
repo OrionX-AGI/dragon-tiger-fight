@@ -1,11 +1,13 @@
 /**
- * AI Worker 客户端封装。界面层只调用这里的异步函数，
- * 计算在 Worker 线程完成；若 Worker 不可用则自动回退到主线程同步计算。
+ * AI 计算入口。界面层只调用这里的异步函数。
+ *
+ * 小红书小工具容器禁用 Web Worker，因此计算全部在主线程执行。
+ * 每次计算前先让出一帧，保证"电脑思考中"等界面状态先绘制出来，
+ * 否则同步占用主线程会让用户看到界面卡住而没有任何反馈。
  */
 import type { BoardAction, BoardGameState } from '../core/boardGame';
 import { createLogger } from '../core/logger';
 import type { Rank } from '../core/types';
-import type { AiWorkerRequest, AiWorkerResponse } from './aiWorker';
 import { chooseBoardAction } from './boardAI';
 import type { AiLevel } from './cardAI';
 import { chooseCard } from './cardAI';
@@ -13,96 +15,33 @@ import { getValueTable } from './cardSolver';
 
 const log = createLogger('ai');
 
-interface Pending {
-  resolve: (value: unknown) => void;
-  reject: (err: Error) => void;
-}
-
-/** undefined = 尚未尝试创建；null = 创建失败，走主线程回退 */
-let worker: Worker | null | undefined;
-const pending = new Map<number, Pending>();
-let nextId = 1;
-
-function failAllPending(reason: string): void {
-  for (const [, p] of pending) p.reject(new Error(reason));
-  pending.clear();
-}
-
-function getWorker(): Worker | null {
-  if (worker !== undefined) return worker;
-  try {
-    worker = new Worker(new URL('./aiWorker.ts', import.meta.url), { type: 'module' });
-    worker.addEventListener('message', (ev: MessageEvent<AiWorkerResponse>) => {
-      const msg = ev.data;
-      const p = pending.get(msg.id);
-      if (!p) return;
-      pending.delete(msg.id);
-      if (msg.ok) p.resolve(msg.result);
-      else p.reject(new Error(msg.error));
-    });
-    worker.addEventListener('error', (ev) => {
-      log.error('AI Worker 出错，后续计算回退到主线程', { message: ev.message });
-      worker?.terminate();
-      worker = null;
-      failAllPending('AI Worker 出错');
-    });
-    log.info('AI Worker 已启动');
-  } catch (err) {
-    log.warn('当前环境不支持 Web Worker，AI 计算将在主线程执行', { err: String(err) });
-    worker = null;
-  }
-  return worker;
-}
-
-/** 对联合类型逐成员做 Omit（TS 的 Omit 不会自动分配到联合成员上） */
-type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
-
-function call(request: DistributiveOmit<AiWorkerRequest, 'id'>): Promise<unknown> | null {
-  const w = getWorker();
-  if (!w) return null;
-  const id = nextId++;
-  return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
-    w.postMessage({ ...request, id });
+/** 让出主线程一帧，等界面把加载态画出来后再开始计算 */
+function yieldToUi(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => setTimeout(resolve, 0));
+    } else {
+      setTimeout(resolve, 0);
+    }
   });
 }
 
 /** 预热纸牌求解器（值表约 1 秒算完）；进入纸牌人机对局时提前调用 */
 export async function prepareCardAi(): Promise<void> {
-  const p = call({ type: 'prepareCardSolver' });
-  if (p) {
-    try {
-      await p;
-      return;
-    } catch {
-      // Worker 失败则回退主线程
-    }
-  }
+  await yieldToUi();
+  const start = Date.now();
   getValueTable();
+  log.info('纸牌求解器值表就绪', { 耗时毫秒: Date.now() - start });
 }
 
-/** 纸牌 AI 选牌（异步，不阻塞界面） */
+/** 纸牌 AI 选牌 */
 export async function requestCardMove(myHand: Rank[], oppHand: Rank[], level: AiLevel): Promise<Rank> {
-  const p = call({ type: 'chooseCard', myHand, oppHand, level });
-  if (p) {
-    try {
-      return (await p) as Rank;
-    } catch (err) {
-      log.warn('Worker 选牌失败，回退主线程', { err: String(err) });
-    }
-  }
+  await yieldToUi();
   return chooseCard(myHand, oppHand, level);
 }
 
-/** 棋盘 AI 行棋（异步，不阻塞界面） */
+/** 棋盘 AI 行棋 */
 export async function requestBoardMove(state: BoardGameState, level: AiLevel): Promise<BoardAction> {
-  const p = call({ type: 'chooseBoardAction', state, level });
-  if (p) {
-    try {
-      return (await p) as BoardAction;
-    } catch (err) {
-      log.warn('Worker 行棋失败，回退主线程', { err: String(err) });
-    }
-  }
+  await yieldToUi();
   return chooseBoardAction(state, level);
 }

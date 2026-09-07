@@ -92,7 +92,7 @@ export default function CardGameScreen({ config, onExit }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 预热 AI 求解器（值表在 Worker 里预计算）
+  // 预热 AI 求解器：值表在主线程算，趁开局记牌阶段完成，不占用选牌时间
   useEffect(() => {
     let cancelled = false;
     prepareCardAi().then(() => {

@@ -117,6 +117,11 @@ export function chooseCard(
     对方手牌: oppHand,
     耗时毫秒: Date.now() - started,
   });
-  log.debug('困难难度最优混合策略', Object.fromEntries(myHand.map((r, i) => [r, probs[i].toFixed(3)])));
+  // 不用 Object.fromEntries（Chrome 73 才支持，低于小工具 Chrome 61 基线）
+  const mixed: Record<string, string> = {};
+  myHand.forEach((r, i) => {
+    mixed[r] = probs[i].toFixed(3);
+  });
+  log.debug('困难难度最优混合策略', mixed);
   return card;
 }

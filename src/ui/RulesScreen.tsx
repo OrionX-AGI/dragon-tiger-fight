@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import quickRulesText from '../../龙虎斗极简规则.md?raw';
-import fullRulesText from '../../龙虎斗游戏规则说明书.md?raw';
+import quickRulesHtml from '../../龙虎斗极简规则.md?html';
+import fullRulesHtml from '../../龙虎斗游戏规则说明书.md?html';
 
 type Tab = 'quick' | 'full';
 
@@ -22,11 +20,11 @@ export default function RulesScreen({ onBack }: { onBack: () => void }) {
           </button>
         </div>
       </header>
-      <article className="rules-content">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {tab === 'quick' ? quickRulesText : fullRulesText}
-        </ReactMarkdown>
-      </article>
+      {/* 规则文档是随包固定的静态内容，构建期已渲染成 HTML，不含任何外部输入 */}
+      <article
+        className="rules-content"
+        dangerouslySetInnerHTML={{ __html: tab === 'quick' ? quickRulesHtml : fullRulesHtml }}
+      />
     </div>
   );
 }

@@ -272,9 +272,11 @@ export function chooseBoardAction(
     确定化样本: samples,
     耗时毫秒: Date.now() - started,
   });
-  log.debug(
-    '各候选着法评分',
-    Object.fromEntries(actions.map((a, i) => [describeAction(a), (totals[i] / samples).toFixed(2)])),
-  );
+  // 不用 Object.fromEntries（Chrome 73 才支持，低于小工具 Chrome 61 基线）
+  const scores: Record<string, string> = {};
+  actions.forEach((a, i) => {
+    scores[describeAction(a)] = (totals[i] / samples).toFixed(2);
+  });
+  log.debug('各候选着法评分', scores);
   return chosen;
 }

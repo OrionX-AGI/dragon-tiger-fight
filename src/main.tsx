@@ -15,6 +15,25 @@ window.addEventListener('unhandledrejection', (e) => {
   log.error('未处理的 Promise 拒绝', { reason: String(e.reason) });
 });
 
+/**
+ * 移动端 100vh 不等于可视高度（地址栏、容器外壳、软键盘都会改变它），
+ * 这里把真实可视高度写进 --app-height；CSS 里始终保留 100vh 作为回退，
+ * 所以即使脚本没跑到，布局依然成立。
+ */
+function trackViewportHeight(): void {
+  const apply = () => {
+    const vv = window.visualViewport;
+    const h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-height', `${h}px`);
+  };
+  apply();
+  window.addEventListener('resize', apply);
+  window.addEventListener('orientationchange', apply);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', apply);
+}
+
+trackViewportHeight();
+
 log.info('龙虎斗启动', {
   日志级别: getLogLevel(),
   调试入口: '控制台输入 龙虎斗日志.打印() 查看日志，龙虎斗日志.级别("debug") 开启详细日志',

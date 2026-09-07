@@ -105,7 +105,9 @@ export default function BoardGameScreen({ config, onExit }: Props) {
     bumpScore(next);
   }
 
-  // AI 行棋：请求 Worker 计算（不阻塞界面），并保证至少停顿片刻更自然
+  // AI 行棋：小工具容器禁用 Worker，搜索在主线程跑（有墙钟预算封顶，
+  // 且 requestBoardMove 会先让出一帧，保证"思考中"提示先画出来），
+  // 另外保证至少停顿片刻更自然
   useEffect(() => {
     if (!isAiTurn) return;
     let cancelled = false;

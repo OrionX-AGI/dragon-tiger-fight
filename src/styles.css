@@ -1,3 +1,16 @@
+/*
+ * 小红书小工具版样式表。
+ *
+ * 兼容基线为 Android 8.1 出场的 Chrome / WebView 61，因此这里刻意避开了
+ * 几类更晚才落地的能力，替换方式如下：
+ *   - flex 的 gap（Chrome 84）      → 子项 margin
+ *   - grid 的 gap（Chrome 66）      → grid-gap
+ *   - aspect-ratio（Chrome 88）     → 显式宽高
+ *   - inset 简写（Chrome 87）       → top/right/bottom/left
+ *   - backdrop-filter（Chrome 76）  → 实色背景基线 + @supports 增强
+ * 现代能力只作为增强层出现，去掉后核心布局与交互仍然完整。
+ */
+
 :root {
   color-scheme: light;
   font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
@@ -10,21 +23,38 @@
   --gold-light: #e3c877;
   --bronze: #7a5a2e;
   --shadow: 0 4px 14px rgba(43, 33, 24, 0.25);
+  /* 安全区：PC 模拟器注入 --safe-area-inset-*，真机取 env()，都取不到时为 0 */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  /* 去掉移动端 300ms 点击延迟，同时禁用双击缩放 */
+  touch-action: manipulation;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  /* --app-height 由 main.tsx 跟随可视高度维护，取不到时回退 100vh */
+  min-height: var(--app-height, 100vh);
   color: var(--ink);
-  background: var(--paper) url('/assets/board-texture.webp') center / cover fixed;
+  /* 相对引用，交给构建改写成包内相对路径（离线包不能用 /assets 绝对路径） */
+  background: var(--paper) url('./assets/board-texture.webp') center / cover fixed;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #root {
   min-height: 100vh;
+  min-height: var(--app-height, 100vh);
 }
 
 h1, h2, h3 {
@@ -52,11 +82,6 @@ button {
   transition: transform 0.12s, filter 0.12s;
 }
 
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.1);
-}
-
 .btn-primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -71,8 +96,35 @@ button {
   transition: background 0.12s;
 }
 
-.btn-plain:hover {
-  background: #fffcf0;
+/* 按钮文案一律不折行，窄屏下"返回大厅"这类短语被拆成两行会很难看 */
+.btn-plain,
+.btn-primary,
+.opt-btn {
+  white-space: nowrap;
+}
+
+/* 触摸端按下反馈；hover 效果只在真有鼠标的设备上启用 */
+.btn-primary:active:not(:disabled),
+.btn-plain:active,
+.opt-btn:active {
+  opacity: 0.75;
+}
+
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+  }
+  .btn-plain:hover {
+    background: #fffcf0;
+  }
+  .btn-danger:hover {
+    background: rgba(139, 44, 32, 0.1);
+  }
+  .card-clickable:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 8px 16px rgba(43, 33, 24, 0.4);
+  }
 }
 
 /* ---------- 大厅 ---------- */
@@ -81,9 +133,14 @@ button {
   max-width: 1000px;
   margin: 0 auto;
   padding: 48px 24px 32px;
+  padding-top: 48px;
+  padding-top: calc(48px + var(--safe-top));
+  padding-bottom: 32px;
+  padding-bottom: calc(32px + var(--safe-bottom));
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: var(--app-height, 100vh);
 }
 
 .lobby-header {
@@ -108,7 +165,7 @@ button {
 .lobby-panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 28px;
+  grid-gap: 28px;
 }
 
 .game-panel {
@@ -138,8 +195,11 @@ button {
 .panel-row {
   display: flex;
   align-items: center;
-  gap: 12px;
   margin-bottom: 12px;
+}
+
+.panel-row > * + * {
+  margin-left: 12px;
 }
 
 .row-label {
@@ -148,10 +208,15 @@ button {
   flex-shrink: 0;
 }
 
+/* 会换行的 flex 用「容器负外边距 + 子项外边距」造间距，等效于 gap */
 .opt-group {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  margin: -4px;
+}
+
+.opt-group > * {
+  margin: 4px;
 }
 
 .opt-btn {
@@ -181,25 +246,29 @@ button {
 
 /* ---------- 牌面 ---------- */
 
+/* 牌面统一 3:4，用显式宽高代替 aspect-ratio */
 .card-view {
   position: relative;
-  aspect-ratio: 3 / 4;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(43, 33, 24, 0.35);
   flex-shrink: 0;
+  -webkit-user-select: none;
   user-select: none;
   transition: transform 0.15s, box-shadow 0.15s, outline 0.15s;
   overflow: hidden;
   background: var(--paper-deep);
 }
 
-.card-sm { width: 64px; }
-.card-md { width: 104px; }
-.card-lg { width: 150px; }
+.card-sm { width: 64px; height: 85px; }
+.card-md { width: 104px; height: 139px; }
+.card-lg { width: 150px; height: 200px; }
 
 .card-img {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -253,11 +322,6 @@ button {
   cursor: pointer;
 }
 
-.card-clickable:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 8px 16px rgba(43, 33, 24, 0.4);
-}
-
 .card-selected {
   outline: 3px solid var(--gold);
   transform: translateY(-10px);
@@ -304,23 +368,31 @@ button {
 
 .card-flip-inner {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
   transition: transform 0.55s cubic-bezier(0.4, 0.1, 0.3, 1);
 }
 
 .card-face {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   border-radius: 8px;
   overflow: hidden;
-  backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   background: var(--paper-deep);
   box-shadow: 0 2px 8px rgba(43, 33, 24, 0.35);
 }
 
 .card-back-face {
+  -webkit-transform: rotateY(180deg);
   transform: rotateY(180deg);
 }
 
@@ -330,17 +402,28 @@ button {
   max-width: 1080px;
   margin: 0 auto;
   padding: 12px 24px 88px;
+  padding-top: 12px;
+  padding-top: calc(12px + var(--safe-top));
+  padding-bottom: 88px;
+  padding-bottom: calc(88px + var(--safe-bottom));
   min-height: 100vh;
+  min-height: var(--app-height, 100vh);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+
+.game-screen > * + * {
+  margin-top: 10px;
 }
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+}
+
+.topbar > * + * {
+  margin-left: 16px;
 }
 
 .topbar h2 {
@@ -360,9 +443,13 @@ button {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  margin: -5px;
+}
+
+.topbar-actions > * {
+  margin: 5px;
 }
 
 /* 三列网格顶栏：标题严格居中（与棋盘/牌桌中线对齐），左右等宽占位。
@@ -371,6 +458,11 @@ button {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
+}
+
+/* 网格顶栏的间距由 grid-gap 负责，清掉 flex 版顶栏的子项外边距 */
+.topbar-centered > * + * {
+  margin-left: 0;
 }
 
 .topbar-centered > :first-child {
@@ -395,10 +487,6 @@ button {
 .btn-danger {
   border-color: var(--crimson);
   color: var(--crimson-deep);
-}
-
-.btn-danger:hover {
-  background: rgba(139, 44, 32, 0.1);
 }
 
 .faction-tag {
@@ -444,25 +532,37 @@ button {
 .zone-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 6px;
+}
+
+.zone-header > * + * {
+  margin-left: 12px;
 }
 
 .hand-cards {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
+  justify-content: center;
+  margin: -5px;
   padding-top: 6px;
+}
+
+.hand-cards > * {
+  margin: 5px;
 }
 
 .lost-row {
   display: flex;
   align-items: center;
-  gap: 6px;
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin: 10px -3px 0;
   padding-top: 8px;
   border-top: 1px dashed rgba(122, 90, 46, 0.4);
+}
+
+.lost-row > * {
+  margin: 3px;
 }
 
 .lost-label {
@@ -479,25 +579,34 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 36px;
   padding: 4px 0;
   min-height: 210px;
+}
+
+.play-area > * + * {
+  margin-left: 36px;
 }
 
 .play-slot {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+}
+
+.play-slot > * + * {
+  margin-top: 8px;
 }
 
 .vs-block {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
   min-width: 220px;
   text-align: center;
+}
+
+.vs-block > * + * {
+  margin-top: 14px;
 }
 
 .vs-mark {
@@ -569,6 +678,8 @@ button {
   right: 0;
   bottom: 0;
   padding: 14px;
+  padding-bottom: 14px;
+  padding-bottom: calc(14px + var(--safe-bottom));
   display: flex;
   justify-content: center;
   background: linear-gradient(180deg, transparent, rgba(43, 33, 24, 0.18));
@@ -583,13 +694,26 @@ button {
 
 .overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  /* 基线：不依赖模糊的半透明实色背景 */
   background: rgba(43, 33, 24, 0.55);
-  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
   z-index: 50;
+}
+
+/* 增强层：支持毛玻璃的内核再加模糊 */
+@supports ((-webkit-backdrop-filter: blur(3px)) or (backdrop-filter: blur(3px))) {
+  .overlay {
+    background: rgba(43, 33, 24, 0.42);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
 }
 
 .overlay-panel {
@@ -611,9 +735,13 @@ button {
 
 .overlay-actions {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
   justify-content: center;
-  margin-top: 20px;
+  margin: 20px -7px 0;
+}
+
+.overlay-actions > * {
+  margin: 7px;
 }
 
 /* ---------- 棋盘对局 ---------- */
@@ -626,8 +754,12 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
   flex-wrap: wrap;
+  margin: 0 -6px;
+}
+
+.status-row > * {
+  margin: 6px;
 }
 
 .tag-seat {
@@ -663,13 +795,18 @@ button {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  gap: 22px;
+  flex-wrap: wrap;
+  margin: 0 -11px;
+}
+
+.board-wrap > * {
+  margin: 0 11px;
 }
 
 .board-grid {
   display: grid;
   grid-template-columns: repeat(4, 106px);
-  gap: 8px;
+  grid-gap: 8px;
   padding: 14px;
   background: rgba(122, 90, 46, 0.25);
   border: 3px solid var(--bronze);
@@ -677,10 +814,11 @@ button {
   box-shadow: var(--shadow);
 }
 
+/* 棋格同样是 3:4，显式写死高度代替 aspect-ratio */
 .board-cell {
   position: relative;
   width: 106px;
-  aspect-ratio: 3 / 4;
+  height: 141px;
   border-radius: 8px;
   background: rgba(255, 252, 240, 0.55);
   border: 1px solid rgba(122, 90, 46, 0.35);
@@ -692,6 +830,7 @@ button {
 
 .board-cell .card-view {
   width: 100%;
+  height: 100%;
 }
 
 .cell-target {
@@ -717,7 +856,6 @@ button {
 .captured-col {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   align-items: center;
   min-width: 76px;
   background: rgba(255, 252, 240, 0.6);
@@ -726,16 +864,8 @@ button {
   padding: 10px 8px;
 }
 
-@media (max-width: 720px) {
-  .board-grid {
-    grid-template-columns: repeat(4, 72px);
-  }
-  .board-cell {
-    width: 72px;
-  }
-  .board-wrap {
-    flex-wrap: wrap;
-  }
+.captured-col > * + * {
+  margin-top: 8px;
 }
 
 /* ---------- 规则页 ---------- */
@@ -744,6 +874,10 @@ button {
   max-width: 860px;
   margin: 0 auto;
   padding: 16px 24px 48px;
+  padding-top: 16px;
+  padding-top: calc(16px + var(--safe-top));
+  padding-bottom: 48px;
+  padding-bottom: calc(48px + var(--safe-bottom));
 }
 
 .rules-content {
@@ -754,6 +888,9 @@ button {
   padding: 20px 40px 40px;
   margin-top: 16px;
   line-height: 1.85;
+  /* 规则正文允许选中，方便玩家自行复制 */
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .rules-content h1 {
@@ -770,9 +907,16 @@ button {
   letter-spacing: 2px;
 }
 
+/* 规则里的克制关系表在窄屏可横向滚动，不撑破页面 */
 .rules-content table {
   border-collapse: collapse;
   margin: 12px auto;
+  display: block;
+  width: -webkit-max-content;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .rules-content th,
@@ -795,13 +939,88 @@ button {
   color: #5c4c38;
 }
 
-/* ---------- 窄屏适配 ---------- */
+/* ---------- 窄屏适配（手机竖屏） ---------- */
 
 @media (max-width: 720px) {
+  .lobby {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  /* 单列铺满：minmax 的 340px 下限在窄屏会撑出横向滚动 */
+  .lobby-panels {
+    grid-template-columns: 1fr;
+    grid-gap: 18px;
+  }
   .lobby-header h1 { font-size: 44px; }
-  .card-md { width: 76px; }
-  .card-lg { width: 116px; }
-  .play-area { gap: 14px; }
+  .game-panel { padding: 18px 16px; }
+  .panel-desc { min-height: 0; }
+
+  .card-md { width: 76px; height: 101px; }
+  .card-lg { width: 116px; height: 155px; }
+
+  .play-area > * + * { margin-left: 14px; }
   .vs-block { min-width: 120px; }
-  .game-screen { padding: 12px 10px 96px; }
+  .game-screen { padding-left: 10px; padding-right: 10px; }
+  .hand-zone { padding: 8px 6px; }
+
+  .topbar h2 { font-size: 20px; letter-spacing: 4px; }
+  .topbar > * + * { margin-left: 8px; }
+  .btn-plain { padding: 7px 10px; font-size: 14px; }
+
+  /* 负外边距不能超过 .game-screen 的横向内边距，否则整页横向溢出 */
+  .board-wrap { margin: 0 -5px; }
+  .board-wrap > * { margin: 0 5px; }
+
+  .board-grid {
+    grid-template-columns: repeat(4, 72px);
+    padding: 8px;
+  }
+  .board-cell {
+    width: 72px;
+    height: 96px;
+  }
+  /* 损失区在窄屏挪到棋盘下方并排铺开 */
+  .captured-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-width: 0;
+    min-height: 46px;
+  }
+  .captured-col > * + * {
+    margin-top: 0;
+    margin-left: 6px;
+  }
+
+  .overlay-panel { padding: 24px 20px; }
+  .overlay-panel h3 { font-size: 24px; letter-spacing: 4px; }
+  .rules-screen { padding-left: 12px; padding-right: 12px; }
+  .rules-content { padding: 16px 16px 28px; }
+
+  /* 规则页顶栏塞不下三组元素，改为标题跟返回按钮同行、两个标签页独占一行 */
+  .rules-screen .topbar {
+    flex-wrap: wrap;
+  }
+  .rules-screen .topbar h2 {
+    flex: 1 1 auto;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .rules-screen .topbar .opt-group {
+    flex: 0 0 100%;
+    justify-content: center;
+    margin: 6px -4px 0;
+  }
+  .rules-content h1 { font-size: 26px; letter-spacing: 3px; }
+  .rules-content h2 { font-size: 20px; margin-top: 24px; }
+}
+
+/* 更窄的小屏（iPhone SE 一档） */
+@media (max-width: 400px) {
+  .lobby-header h1 { font-size: 36px; letter-spacing: 12px; text-indent: 12px; }
+  .card-md { width: 70px; height: 93px; }
+  .card-lg { width: 100px; height: 133px; }
+  .board-grid { grid-template-columns: repeat(4, 66px); }
+  .board-cell { width: 66px; height: 88px; }
+  .btn-primary { padding: 9px 20px; font-size: 16px; letter-spacing: 2px; }
 }
