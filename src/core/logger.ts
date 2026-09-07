@@ -1,6 +1,6 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'off';
 
-export type LogCategory = 'app' | 'ui' | 'engine' | 'ai';
+export type LogCategory = 'app' | 'ui' | 'engine' | 'ai' | 'audio';
 
 export interface LogEntry {
   time: string;

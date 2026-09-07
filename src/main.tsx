@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { ensureAudio } from './audio/sound';
 import { createLogger, getLogLevel, installLogBridge } from './core/logger';
 import './styles.css';
 
@@ -33,6 +34,10 @@ function trackViewportHeight(): void {
 }
 
 trackViewportHeight();
+
+// 自动播放策略要求用户手势后才能出声：首次触摸时启动声音引擎并开始 BGM，
+// 之后的触摸只负责唤醒被容器挂起的 AudioContext，所以监听不摘除
+window.addEventListener('pointerdown', () => ensureAudio());
 
 log.info('龙虎斗启动', {
   日志级别: getLogLevel(),

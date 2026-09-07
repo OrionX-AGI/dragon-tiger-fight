@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { prepareCardAi, requestCardMove } from '../../ai/aiClient';
+import { playSfx } from '../../audio/sound';
 import type { CardGameState, RoundRecord } from '../../core/cardGame';
 import { createCardGame, playRound, surrender } from '../../core/cardGame';
 import { createLogger } from '../../core/logger';
@@ -168,9 +169,24 @@ export default function CardGameScreen({ config, onExit }: Props) {
   const picking = phase === 'pick' && !gameOver;
 
   function resolveRound(dragonCard: Rank, tigerCard: Rank) {
-    setGame((g) => playRound(g, dragonCard, tigerCard));
+    // waiting 阶段没有别的状态更新入口（认输经 roundSeq 使本回合作废），
+    // 闭包里的 game 就是当前局面，直接算出 next 以便根据结果配音效
+    const next = playRound(game, dragonCard, tigerCard);
+    setGame(next);
     setSelected(null);
     setPhase('reveal');
+
+    // 音效延迟到翻牌动画（约 0.55s）转到正面的时刻
+    const round = next.history[next.history.length - 1];
+    const sfx =
+      next.outcome === 'draw'
+        ? 'draw'
+        : next.outcome !== null
+          ? next.outcome
+          : round.winner === 'both'
+            ? 'mutual'
+            : round.winner;
+    window.setTimeout(() => playSfx(sfx), 500);
   }
 
   async function confirmPick() {
@@ -192,7 +208,10 @@ export default function CardGameScreen({ config, onExit }: Props) {
   function doSurrender() {
     roundSeq.current++;
     log.info('玩家认输', { 认输方: playerFaction });
-    setGame((g) => (g.outcome === null ? surrender(g, playerFaction) : g));
+    if (game.outcome === null) {
+      setGame(surrender(game, playerFaction));
+      playSfx(aiFaction); // 认输即对方获胜，播对方阵营的啸声
+    }
     setSurrenderAsk(false);
     setSelected(null);
     setPhase('reveal');
