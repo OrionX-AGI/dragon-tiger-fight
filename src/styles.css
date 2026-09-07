@@ -251,15 +251,15 @@ button {
   margin-top: 36px;
 }
 
-/* 大厅底部的音乐/音效开关 */
-.sound-toggles {
-  display: flex;
-  justify-content: center;
-  margin-top: 10px;
+.lobby-footer > * + * {
+  margin-left: 14px;
 }
 
-.sound-toggles > * + * {
-  margin-left: 10px;
+/* 设置页：一块窄面板居中即可 */
+.settings-panel {
+  max-width: 420px;
+  margin: 24px auto 0;
+  width: 100%;
 }
 
 /* ---------- 牌面 ---------- */

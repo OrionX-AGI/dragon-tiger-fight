@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { AiLevel } from '../ai/cardAI';
 import { AI_LEVEL_LABELS } from '../ai/cardAI';
-import { isMusicOn, isSfxOn, setMusicOn, setSfxOn } from '../audio/sound';
 import type { MatchConfig } from './config';
 import { defaultConfig } from './config';
 
@@ -9,6 +8,7 @@ interface Props {
   onStartCard: (config: MatchConfig) => void;
   onStartBoard: (config: MatchConfig) => void;
   onRules: () => void;
+  onSettings: () => void;
 }
 
 const LEVELS: AiLevel[] = ['easy', 'normal', 'hard'];
@@ -104,35 +104,7 @@ function GamePanel({
   );
 }
 
-/** 音乐 / 音效开关：偏好持久化在声音引擎里，这里只做展示态 */
-function SoundToggles() {
-  const [music, setMusic] = useState(isMusicOn);
-  const [sfx, setSfx] = useState(isSfxOn);
-  return (
-    <div className="sound-toggles">
-      <button
-        className={`opt-btn ${music ? 'opt-active' : ''}`}
-        onClick={() => {
-          setMusicOn(!music);
-          setMusic(!music);
-        }}
-      >
-        音乐{music ? '开' : '关'}
-      </button>
-      <button
-        className={`opt-btn ${sfx ? 'opt-active' : ''}`}
-        onClick={() => {
-          setSfxOn(!sfx);
-          setSfx(!sfx);
-        }}
-      >
-        音效{sfx ? '开' : '关'}
-      </button>
-    </div>
-  );
-}
-
-export default function Lobby({ onStartCard, onStartBoard, onRules }: Props) {
+export default function Lobby({ onStartCard, onStartBoard, onRules, onSettings }: Props) {
   return (
     <div className="lobby">
       <header className="lobby-header">
@@ -155,7 +127,7 @@ export default function Lobby({ onStartCard, onStartBoard, onRules }: Props) {
       </div>
       <footer className="lobby-footer">
         <button className="btn-plain" onClick={onRules}>1分钟掌握游戏规则</button>
-        <SoundToggles />
+        <button className="btn-plain" onClick={onSettings}>设置</button>
       </footer>
     </div>
   );
