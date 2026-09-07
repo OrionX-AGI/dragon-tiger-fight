@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { playSfx } from '../audio/sound';
 import type { PlayerSlot } from '../core/boardGame';
 import { QUIET_MOVES_FOR_DRAW, adjacentIndices, getLegalActions } from '../core/boardGame';
 import { QUIET_WARN_THRESHOLDS } from '../ui/BoardGame/BoardGameScreen';
@@ -68,6 +69,37 @@ export default function OnlineBoardScreen({
 
   const gameOver = view.outcome !== null;
   const isMyTurn = !gameOver && view.current === view.yourSlot;
+
+  // 音效：对服务器推送的 captured 数量做增量判断。初值取当前局面，
+  // 重连进行中/已结束的对局时不补播旧声音
+  const sfxCaptured = useRef({
+    gameIndex: view.gameIndex,
+    dragon: view.captured.filter((c) => c.faction === 'dragon').length,
+    tiger: view.captured.filter((c) => c.faction === 'tiger').length,
+    outcomePlayed: view.outcome !== null,
+  });
+  useEffect(() => {
+    const s = sfxCaptured.current;
+    const dragon = view.captured.filter((c) => c.faction === 'dragon').length;
+    const tiger = view.captured.filter((c) => c.faction === 'tiger').length;
+    if (s.gameIndex !== view.gameIndex) {
+      // 换新局：基准归零，不出声
+      sfxCaptured.current = { gameIndex: view.gameIndex, dragon, tiger, outcomePlayed: view.outcome !== null };
+      return;
+    }
+    if (view.outcome !== null) {
+      // 终局只播终局音（赢方阵营的啸声 / 和棋磬声），不与末子吃子音叠放
+      if (!s.outcomePlayed) playSfx(view.outcome === 'draw' ? 'draw' : view.outcome);
+      sfxCaptured.current = { gameIndex: view.gameIndex, dragon, tiger, outcomePlayed: true };
+      return;
+    }
+    const dragonLost = dragon - s.dragon;
+    const tigerLost = tiger - s.tiger;
+    if (dragonLost > 0 && tigerLost > 0) playSfx('mutual');
+    else if (dragonLost > 0) playSfx('tiger');
+    else if (tigerLost > 0) playSfx('dragon');
+    sfxCaptured.current = { gameIndex: view.gameIndex, dragon, tiger, outcomePlayed: false };
+  }, [view.captured.length, view.outcome, view.gameIndex]); // eslint-disable-line react-hooks/exhaustive-deps
   const myFaction = view.factions[view.yourSlot];
   const mySeat = room.yourSeat;
   const oppSeat = mySeat === 0 ? 1 : 0;

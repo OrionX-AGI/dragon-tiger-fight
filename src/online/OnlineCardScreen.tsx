@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { playSfx } from '../audio/sound';
 import type { RoundRecord } from '../core/cardGame';
 import type { Faction, Rank } from '../core/types';
 import { otherFaction } from '../core/types';
@@ -70,6 +71,28 @@ export default function OnlineCardScreen({
   const lastRound = view.history.length > 0 ? view.history[view.history.length - 1] : null;
   /** 本轮系列已结束的局数 */
   const finishedGames = room.wins[0] + room.wins[1] + room.draws;
+
+  // 音效：状态由服务器推送，对 view 做增量判断。初值取当前局面，
+  // 重连进行中/已结束的对局时不补播旧声音
+  const sfxRoundCount = useRef(view.history.length);
+  const sfxOutcomePlayed = useRef(view.outcome !== null);
+  useEffect(() => {
+    if (view.outcome !== null) {
+      // 终局只播终局音（赢方阵营的啸声 / 和棋磬声），不与末轮吃子音叠放
+      if (!sfxOutcomePlayed.current) {
+        sfxOutcomePlayed.current = true;
+        playSfx(view.outcome === 'draw' ? 'draw' : view.outcome);
+      }
+      return;
+    }
+    sfxOutcomePlayed.current = false;
+    const len = view.history.length;
+    if (len > sfxRoundCount.current && len > 0) {
+      const r = view.history[len - 1];
+      playSfx(r.winner === 'both' ? 'mutual' : r.winner);
+    }
+    sfxRoundCount.current = len; // 换新局时 history 归零，这里同步回落
+  }, [view.history.length, view.outcome]);
 
   function pick(rank: Rank) {
     if (gameOver || youCommitted || connBanner !== null) return;
