@@ -88,8 +88,11 @@ export default function OnlineBoardScreen({
       return;
     }
     if (view.outcome !== null) {
-      // 终局只播终局音（赢方阵营的啸声 / 和棋磬声），不与末子吃子音叠放
-      if (!s.outcomePlayed) playSfx(view.outcome === 'draw' ? 'draw' : view.outcome);
+      // 终局只播终局音（按本端玩家胜负：胜利号/失落音），不与末子吃子音叠放
+      if (!s.outcomePlayed) {
+        const mf = view.factions[view.yourSlot];
+        playSfx(view.outcome === 'draw' ? 'draw' : view.outcome === mf ? 'victory' : 'defeat');
+      }
       sfxCaptured.current = { gameIndex: view.gameIndex, dragon, tiger, outcomePlayed: true };
       return;
     }

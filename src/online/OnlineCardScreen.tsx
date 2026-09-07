@@ -78,10 +78,10 @@ export default function OnlineCardScreen({
   const sfxOutcomePlayed = useRef(view.outcome !== null);
   useEffect(() => {
     if (view.outcome !== null) {
-      // 终局只播终局音（赢方阵营的啸声 / 和棋磬声），不与末轮吃子音叠放
+      // 终局只播终局音（按本端玩家胜负：胜利号/失落音），不与末轮吃子音叠放
       if (!sfxOutcomePlayed.current) {
         sfxOutcomePlayed.current = true;
-        playSfx(view.outcome === 'draw' ? 'draw' : view.outcome);
+        playSfx(view.outcome === 'draw' ? 'draw' : view.outcome === myFaction ? 'victory' : 'defeat');
       }
       return;
     }

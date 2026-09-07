@@ -5,6 +5,7 @@ import BoardGameScreen from './ui/BoardGame/BoardGameScreen';
 import CardGameScreen from './ui/CardGame/CardGameScreen';
 import Lobby from './ui/Lobby';
 import RulesScreen from './ui/RulesScreen';
+import SettingsScreen from './ui/SettingsScreen';
 import type { MatchConfig } from './ui/config';
 
 const log = createLogger('ui');
@@ -12,6 +13,7 @@ const log = createLogger('ui');
 type Screen =
   | { name: 'lobby' }
   | { name: 'rules' }
+  | { name: 'settings' }
   | { name: 'card'; config: MatchConfig }
   | { name: 'board'; config: MatchConfig }
   | { name: 'online' };
@@ -28,6 +30,8 @@ export default function App() {
   switch (screen.name) {
     case 'rules':
       return <RulesScreen onBack={backToLobby} />;
+    case 'settings':
+      return <SettingsScreen onBack={backToLobby} />;
     case 'card':
       return <CardGameScreen key={Date.now()} config={screen.config} onExit={backToLobby} />;
     case 'board':
@@ -41,6 +45,7 @@ export default function App() {
           onStartBoard={(config) => go({ name: 'board', config })}
           onOnline={() => go({ name: 'online' })}
           onRules={() => go({ name: 'rules' })}
+          onSettings={() => go({ name: 'settings' })}
         />
       );
   }

@@ -98,12 +98,14 @@ export default function BoardGameScreen({ config, onExit }: Props) {
   }
 
   /**
-   * 按这步行动的结果配音效：吃子播吃子方的啸声（龙被吃是虎啸），
-   * 同时减员播同尽音；一旦终局只播终局音，不与吃子音叠放。
+   * 按这步行动的结果配音效：吃子播吃子方的短音（龙被吃响虎方音），
+   * 同时减员播同尽音；一旦终局只播终局音（按玩家胜负），不与吃子音叠放。
    */
   function playBoardSfx(prev: BoardGameState, next: BoardGameState) {
     if (next.outcome !== null) {
-      playSfx(next.outcome === 'draw' ? 'draw' : next.outcome);
+      // 阵营要从 next 拿：本局阵营由翻牌决定，闭包里的 game 可能还没定
+      const pf = next.factions[otherSlot(aiSlot)];
+      playSfx(next.outcome === 'draw' ? 'draw' : next.outcome === pf ? 'victory' : 'defeat');
       return;
     }
     const lostOf = (s: BoardGameState, f: Faction) =>
