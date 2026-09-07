@@ -350,7 +350,8 @@ button {
 }
 
 .card-empty-mark {
-  font-size: 32px;
+  font-size: 34px;
+  line-height: 1;
   color: var(--bronze);
   opacity: 0.6;
 }
@@ -467,8 +468,10 @@ button {
   align-items: center;
 }
 
-/* 网格顶栏的间距由 grid-gap 负责，清掉 flex 版顶栏的子项外边距 */
-.topbar-centered > * + * {
+/* 网格顶栏的间距由列宽负责，清掉 flex 版顶栏的子项外边距。
+   这里必须用两个类提高优先级：窄屏媒体查询里的 .topbar > * + * 排在本规则之后，
+   同优先级下会赢，把 margin-left 加回给标题，导致标题偏离棋盘中线。 */
+.topbar.topbar-centered > * + * {
   margin-left: 0;
 }
 
@@ -484,11 +487,19 @@ button {
   text-align: center;
 }
 
-/* 顶栏下方居中显示的战绩行 */
+/* 顶栏下方居中显示的战绩行（棋盘页还会在这里放认输按钮） */
 .score-row {
+  position: relative;
   display: flex;
+  align-items: center;
   justify-content: center;
   margin: -4px 0;
+}
+
+/* 认输脱离文档流靠右，这样战绩不会被它挤偏，始终与棋盘中线对齐 */
+.score-row .btn-mini {
+  position: absolute;
+  right: 0;
 }
 
 .btn-danger {
@@ -563,6 +574,7 @@ button {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  justify-content: center;
   margin: 10px -3px 0;
   padding-top: 8px;
   border-top: 1px dashed rgba(122, 90, 46, 0.4);
@@ -894,8 +906,9 @@ button {
   margin-top: 8px;
 }
 
-/* 损失区只需看清是哪几号牌，牌名反而挤 */
-.captured-col .card-name {
+/* 损失区/弃牌区只需看清是哪几号牌，号数角标已经够了，牌名反而挤 */
+.captured-col .card-name,
+.lost-row .card-name {
   display: none;
 }
 
@@ -909,6 +922,13 @@ button {
   padding-top: calc(16px + var(--safe-top));
   padding-bottom: 48px;
   padding-bottom: calc(48px + var(--safe-bottom));
+}
+
+/* 规则页的两个标签页独占一行居中 */
+.rules-tabs {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
 }
 
 .rules-content {
@@ -1013,6 +1033,11 @@ button {
   .vs-mark { width: 46px; height: 46px; font-size: 22px; }
   .center-note { font-size: 16px; letter-spacing: 1px; }
   .lost-row { margin-top: 4px; padding-top: 4px; }
+  /* 战绩行与下方手牌区之间留出呼吸感：基线的 -4px 负边距把间距吃成了 0 */
+  .score-row { margin: 4px 0 6px; }
+  /* 弃牌与棋盘页的损失牌同尺寸 */
+  .lost-row .card-view { width: 38px; height: 51px; }
+  .lost-row .card-rank { width: 15px; height: 15px; font-size: 10px; }
   .game-screen { padding-left: 10px; padding-right: 10px; }
   .game-screen > * + * { margin-top: 4px; }
   /* 底部只需让出固定操作栏的高度，桌面端的 88px 在手机上偏多 */
@@ -1074,21 +1099,7 @@ button {
   .rules-screen { padding-left: 12px; padding-right: 12px; }
   .rules-content { padding: 16px 16px 28px; }
 
-  /* 规则页顶栏塞不下三组元素，改为标题跟返回按钮同行、两个标签页独占一行 */
-  .rules-screen .topbar {
-    flex-wrap: wrap;
-  }
-  .rules-screen .topbar h2 {
-    flex: 1 1 auto;
-    text-align: center;
-    white-space: nowrap;
-  }
-  .rules-screen .topbar .opt-group {
-    flex: 0 0 100%;
-    justify-content: center;
-    margin: 6px -4px 0;
-  }
-  .rules-content h1 { font-size: 26px; letter-spacing: 3px; }
+    .rules-content h1 { font-size: 26px; letter-spacing: 3px; }
   .rules-content h2 { font-size: 20px; margin-top: 24px; }
 }
 
@@ -1126,7 +1137,8 @@ button {
   /* 棋盘页在 640px 高只差二十几像素就能一屏放下，这里把棋格与损失牌各收一档补上 */
   .board-wrap { --cell: 64px; }
   .captured-col { padding: 4px 5px; }
-  .captured-col .card-view { width: 34px; height: 45px; }
+  .captured-col .card-view,
+  .lost-row .card-view { width: 34px; height: 45px; }
   .status-row > * { margin: 3px; }
-  .score-row { margin: 0; }
+  .score-row { margin: 0 0 4px; }
 }

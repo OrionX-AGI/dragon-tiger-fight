@@ -35,7 +35,8 @@ export default function CardView({
     classes.push('card-empty');
     return (
       <div className={classes.join(' ')} onClick={onClick}>
-        <span className="card-empty-mark">？</span>
+        {/* 用半角问号：全角"？"的字形在字符框内靠左、右侧留白，居中后看着是偏的 */}
+        <span className="card-empty-mark">?</span>
       </div>
     );
   }

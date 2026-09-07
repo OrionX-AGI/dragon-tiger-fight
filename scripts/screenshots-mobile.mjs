@@ -76,6 +76,56 @@ async function checkNoWrap(page, label, selectors) {
   return ok;
 }
 
+/** 空牌位的问号要在卡位里左右居中，允许 1px 的取整误差 */
+async function checkMarkCentered(page, label) {
+  const offs = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.card-empty')).map((slot) => {
+      const mark = slot.querySelector('.card-empty-mark');
+      if (!mark) return null;
+      const s = slot.getBoundingClientRect();
+      const m = mark.getBoundingClientRect();
+      return Math.round(m.left + m.width / 2 - (s.left + s.width / 2));
+    }),
+  );
+  const real = offs.filter((o) => o !== null);
+  if (real.length === 0) {
+    console.log(`  [${label}] 无空牌位，跳过问号居中检查`);
+    return true;
+  }
+  const bad = real.filter((o) => Math.abs(o) > 1);
+  console.log(`  [${label}] 问号偏移 ${real.join(',')}px → ${bad.length ? '未居中' : 'OK'}`);
+  return bad.length === 0;
+}
+
+/** 顶栏标题与战绩都要压在棋盘中线上，允许 1px 取整误差 */
+async function checkCenteredOn(page, label, refSel, sels) {
+  const offs = await page.evaluate(
+    ([ref, list]) => {
+      const r = document.querySelector(ref);
+      if (!r) return null;
+      const rc = r.getBoundingClientRect();
+      const mid = rc.left + rc.width / 2;
+      return list
+        .map((sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return null;
+          const b = el.getBoundingClientRect();
+          return { sel, off: Math.round(b.left + b.width / 2 - mid) };
+        })
+        .filter((x) => x !== null);
+    },
+    [refSel, sels],
+  );
+  if (!offs) {
+    console.log(`  [${label}] 找不到基准 ${refSel}，跳过居中检查`);
+    return true;
+  }
+  const bad = offs.filter((o) => Math.abs(o.off) > 1);
+  const desc = offs.map((o) => `${o.sel}=${o.off}`).join(' ');
+  console.log(`  [${label}] 相对${refSel}中线偏移 ${desc} → ${bad.length ? '未对齐' : 'OK'}`);
+  return bad.length === 0;
+}
+
 /** 损失面板必须与棋盘同宽，否则视觉上是两块不相干的东西 */
 async function checkCapturedWidth(page, label) {
   const r = await page.evaluate(() => {
@@ -129,6 +179,7 @@ async function runViewport(browser, vp) {
   ok = (await checkOverflow(page, '纸牌', vp.width)) && ok;
   await checkHeight(page, '纸牌·记牌', vp.height);
   ok = (await checkNoWrap(page, '纸牌·记牌', ['.score-tag', '.center-note'])) && ok;
+  ok = (await checkMarkCentered(page, '纸牌·记牌')) && ok;
   await shoot(page, `card-${vp.tag}`);
 
   // 打一个回合，核对揭示阶段的"X 吃掉 Y"整宽行不折行。
@@ -143,6 +194,16 @@ async function runViewport(browser, vp) {
   await checkHeight(page, '纸牌·揭示', vp.height);
   ok = (await checkNoWrap(page, '纸牌·揭示', ['.center-note', '.score-tag'])) && ok;
   await shoot(page, `card-reveal-${vp.tag}`);
+
+  // 弃牌展开态：核对弃牌尺寸与展开后的整页高度。
+  // 只等 .lost-row 出现在任意一侧——赢的一方没有失牌，那一侧不渲染弃牌行。
+  await page.locator('.hand-zone.zone-bottom .btn-mini', { hasText: '查看弃牌' }).click();
+  await page.waitForSelector('.lost-row');
+  await sleep(300);
+  ok = (await checkOverflow(page, '纸牌·弃牌', vp.width)) && ok;
+  await checkHeight(page, '纸牌·弃牌', vp.height);
+  await shoot(page, `card-discard-${vp.tag}`);
+  await page.locator('.hand-zone.zone-bottom .btn-mini', { hasText: '隐藏弃牌' }).click();
 
   await backToLobby(page);
   const boardPanel = page.locator('.game-panel', { hasText: '棋盘翻棋' });
@@ -168,6 +229,9 @@ async function runViewport(browser, vp) {
   await checkHeight(page, '棋盘', vp.height);
   ok = (await checkCapturedWidth(page, '棋盘')) && ok;
   ok =
+    (await checkCenteredOn(page, '棋盘', '.board-grid', ['.topbar h2', '.score-row .score-tag'])) &&
+    ok;
+  ok =
     (await checkNoWrap(page, '棋盘', [
       '.status-row .tag-seat',
       '.score-row .score-tag',
@@ -186,7 +250,7 @@ async function runViewport(browser, vp) {
   return ok;
 }
 
-const SHOT_NAMES = ['lobby', 'card', 'card-reveal', 'board', 'rules'];
+const SHOT_NAMES = ['lobby', 'card', 'card-reveal', 'card-discard', 'board', 'rules'];
 
 async function main() {
   await mkdir(RAW, { recursive: true });

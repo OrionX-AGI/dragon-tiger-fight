@@ -282,10 +282,18 @@ export default function CardGameScreen({ config, onExit }: Props) {
           <span className={`faction-tag tag-${f}`}>{factionLabel(f)}</span>
           {/* 折叠态只显示张数，跟表头挤在一行；展开才占整行，省下一行高度 */}
           {lost.length > 0 && <span className="lost-count">已吃掉 {lost.length} 张</span>}
-          {/* 弃牌开关放玩家侧表头：顶栏在手机上塞不下两个按钮 */}
+          {/* 操作按钮都放玩家侧表头，避开顶栏右上角的容器分享按钮 */}
           {f === playerFaction && (
             <button className="btn-plain btn-mini" onClick={toggleDiscard}>
               {showDiscard ? '隐藏弃牌' : '查看弃牌'}
+            </button>
+          )}
+          {f === playerFaction && !gameOver && phase !== 'preview' && (
+            <button
+              className="btn-plain btn-mini btn-danger"
+              onClick={() => setSurrenderAsk(true)}
+            >
+              认输
             </button>
           )}
         </div>
@@ -380,13 +388,9 @@ export default function CardGameScreen({ config, onExit }: Props) {
       <header className="topbar topbar-centered">
         <button className="btn-plain" onClick={requestExit}>← 返回大厅</button>
         <h2>纸牌对拼</h2>
-        <div className="topbar-actions">
-          {!gameOver && phase !== 'preview' && (
-            <button className="btn-plain btn-danger" onClick={() => setSurrenderAsk(true)}>
-              认输
-            </button>
-          )}
-        </div>
+        {/* 右侧留空：小工具容器在顶栏右上角预置了分享按钮，放我们的按钮会被压住。
+            占位元素不能删，三列网格少一列标题就压不住中线。 */}
+        <div className="topbar-actions" />
       </header>
 
       <div className="score-row">

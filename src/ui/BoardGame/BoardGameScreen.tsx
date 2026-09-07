@@ -264,13 +264,9 @@ export default function BoardGameScreen({ config, onExit }: Props) {
       <header className="topbar topbar-centered">
         <button className="btn-plain" onClick={requestExit}>← 返回大厅</button>
         <h2>棋盘翻棋</h2>
-        <div className="topbar-actions">
-          {canSurrender && (
-            <button className="btn-plain btn-danger" onClick={() => setSurrenderAsk(true)}>
-              认输
-            </button>
-          )}
-        </div>
+        {/* 右侧留空：小工具容器在顶栏右上角预置了分享按钮，放我们的按钮会被压住。
+            占位元素不能删，三列网格少一列标题就压不住中线。 */}
+        <div className="topbar-actions" />
       </header>
 
       <div className="board-status">
@@ -283,10 +279,19 @@ export default function BoardGameScreen({ config, onExit }: Props) {
             后手：{slotLabel('second')}
           </span>
         </div>
+        {/* 认输跟战绩同行：顶栏右上角被容器的分享按钮占着 */}
         <div className="score-row">
           <span className="score-tag">
             战绩：玩家 {score.player} 胜 · 电脑 {score.ai} 胜 · 和 {score.draw}
           </span>
+          {canSurrender && (
+            <button
+              className="btn-plain btn-mini btn-danger"
+              onClick={() => setSurrenderAsk(true)}
+            >
+              认输
+            </button>
+          )}
         </div>
         {!gameOver && (
           <p className="turn-banner">
