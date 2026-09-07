@@ -274,8 +274,26 @@ button {
   margin-left: auto;
 }
 
-.settings-panel .panel-row:last-child {
+/* 每项一行，行间用分隔线断开。
+   间距改用内边距而非外边距：外边距会被相邻行的分隔线夹在中间，
+   上下气口不等宽。 */
+.settings-panel .panel-row {
   margin-bottom: 0;
+  padding: 15px 0;
+}
+
+/* 标题的分隔线与第一项之间要留气口——游戏面板靠 .panel-desc 撑开，
+   设置页没有描述文字，不给就直接贴上去了 */
+.settings-panel .panel-row:first-of-type {
+  padding-top: 20px;
+}
+
+.settings-panel .panel-row:last-child {
+  padding-bottom: 0;
+}
+
+.settings-panel .panel-row + .panel-row {
+  border-top: 1px solid var(--paper-deep);
 }
 
 /* ---------- 牌面 ---------- */
